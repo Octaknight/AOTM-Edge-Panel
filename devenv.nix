@@ -185,6 +185,6 @@
   # Test configuration
   enterTest = ''
     echo "Running test suite..."
-    cargo nextest run --workspace
+    cargo test --workspace
   '';
 }

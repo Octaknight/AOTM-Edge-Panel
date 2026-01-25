@@ -10,8 +10,8 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "GPL-3.0"
-authors = ["HT32 Panel Contributors"]
+license = "AGPL-3.0-or-later"
+authors = ["Ananth Bhaskararaman <ab@calculon.tech>"]
 repository = "https://github.com/ananthb/ht32-panel"
 
 [workspace.dependencies]

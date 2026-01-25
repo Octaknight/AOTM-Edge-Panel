@@ -83,9 +83,11 @@ The daemon exposes `org.ht32panel.Daemon1` on the session bus.
 
 ## Acknowledgement
 
-Thanks to the research and source code from https://github.com/tjaworski/AceMagic-S1-LED-TFT-Linux.
-This project was only possible because of that one.
+My thanks for the ideas and source code from [github.com/tjaworski/AceMagic-S1-LED-TFT-Linux](https://github.com/tjaworski/AceMagic-S1-LED-TFT-Linux/commit/2971f2b0703bd3170a3f714867652f7e085ec447).
 
 ## License
 
-GPL-3.0
+ht32-panel is licensed under the terms of the AGPL license.
+See [LICENSE](LICENSE) for the full license text.
+
+Copyright &#169; Ananth Bhaskararaman 2026
