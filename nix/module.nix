@@ -8,9 +8,9 @@ in
   options.services.ht32-panel = {
     enable = lib.mkEnableOption "HT32 Panel daemon for LCD and LED control";
 
-    package = lib.mkPackageOption pkgs "ht32-panel" {
-      default = null;
-      nullable = true;
+    package = lib.mkOption {
+      type = lib.types.package;
+      description = "The ht32-panel package to use.";
     };
 
     user = lib.mkOption {
@@ -130,9 +130,10 @@ in
         description = "Enable the system tray applet for desktop environments.";
       };
 
-      package = lib.mkPackageOption pkgs "ht32-panel-applet" {
+      package = lib.mkOption {
+        type = lib.types.nullOr lib.types.package;
         default = null;
-        nullable = true;
+        description = "The ht32-panel-applet package to use.";
       };
 
       autostart = lib.mkOption {
@@ -263,22 +264,10 @@ in
 
     # Add package to system packages for CLI access
     environment.systemPackages = [ cfg.package ]
-      ++ lib.optional cfg.applet.enable cfg.applet.package;
+      ++ lib.optional (cfg.applet.enable && cfg.applet.package != null) cfg.applet.package;
 
     # Applet autostart desktop entry
-    xdg.autostart.entries = lib.mkIf (cfg.applet.enable && cfg.applet.autostart) {
-      "ht32-panel-applet" = {
-        name = "HT32 Panel Applet";
-        exec = "${cfg.applet.package}/bin/ht32-panel-applet";
-        icon = "display-brightness-symbolic";
-        comment = "System tray applet for HT32 Panel control";
-        categories = [ "System" "Monitor" ];
-        startupNotify = false;
-      };
-    };
-
-    # Alternative: Create desktop file directly for broader compatibility
-    environment.etc = lib.mkIf (cfg.applet.enable && cfg.applet.autostart) {
+    environment.etc = lib.mkIf (cfg.applet.enable && cfg.applet.autostart && cfg.applet.package != null) {
       "xdg/autostart/ht32-panel-applet.desktop".text = ''
         [Desktop Entry]
         Type=Application
