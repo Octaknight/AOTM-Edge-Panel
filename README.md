@@ -1,5 +1,7 @@
 # HT32 Panel
 
+[![Release](https://github.com/ananthb/ht32-panel/actions/workflows/release.yml/badge.svg)](https://github.com/ananthb/ht32-panel/actions/workflows/release.yml)
+
 Front-panel display and LED control for mini PCs with HT32-based LCD and RGB LEDs (AceMagic S1S, Skullsaints Agni, etc.).
 
 ## Features
@@ -17,18 +19,20 @@ Front-panel display and LED control for mini PCs with HT32-based LCD and RGB LED
 
 ## Installation
 
-### Flatpak
-
-```bash
-flatpak install ht32-panel-*.flatpak
-flatpak run org.ht32panel.Daemon
-```
+Download the latest release from [GitHub Releases](https://github.com/ananthb/ht32-panel/releases).
 
 ### AppImage
 
 ```bash
-chmod +x ht32-panel-*.AppImage
-./ht32-panel-*.AppImage
+chmod +x ht32-panel-*-x86_64.AppImage
+./ht32-panel-*-x86_64.AppImage
+```
+
+### Linux Binary
+
+```bash
+tar -xzf ht32-panel-*-x86_64-linux.tar.gz
+./ht32paneld config/default.toml
 ```
 
 ### NixOS
@@ -69,13 +73,15 @@ cargo build --release
 ## Usage
 
 ```bash
-# Start daemon (web UI at http://localhost:8686)
+# Start daemon
 ht32paneld config/default.toml
 
 # CLI (requires daemon)
 ht32panelctl lcd orientation landscape
 ht32panelctl led set rainbow --intensity 3 --speed 3
 ```
+
+To enable the web UI, set `web.enable = true` in the config file.
 
 ## D-Bus
 
