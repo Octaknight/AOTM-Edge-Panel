@@ -25,10 +25,18 @@ in
       description = "Group under which the daemon runs.";
     };
 
-    listen = lib.mkOption {
-      type = lib.types.str;
-      default = "0.0.0.0:8686";
-      description = "Address and port for the web interface.";
+    web = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Enable the web interface.";
+      };
+
+      listen = lib.mkOption {
+        type = lib.types.str;
+        default = "[::1]:8686";
+        description = "Address and port for the web interface.";
+      };
     };
 
     theme = lib.mkOption {
@@ -216,7 +224,10 @@ in
 
         # Generate config file
         cat > ${cfg.configDir}/config.toml << EOF
-        listen = "${cfg.listen}"
+        [web]
+        enable = ${lib.boolToString cfg.web.enable}
+        listen = "${cfg.web.listen}"
+
         theme = "${cfg.theme}"
         poll = ${toString cfg.poll}
         refresh = ${toString cfg.refresh}
@@ -243,10 +254,10 @@ in
       '';
     };
 
-    # Open firewall if requested
-    networking.firewall = lib.mkIf cfg.openFirewall {
+    # Open firewall if requested (only if web server is enabled)
+    networking.firewall = lib.mkIf (cfg.openFirewall && cfg.web.enable) {
       allowedTCPPorts = [
-        (lib.toInt (lib.last (lib.splitString ":" cfg.listen)))
+        (lib.toInt (lib.last (lib.splitString ":" cfg.web.listen)))
       ];
     };
 

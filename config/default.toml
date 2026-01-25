@@ -1,7 +1,11 @@
 # HT32 Panel Daemon Configuration
 
+# Web Server Configuration
+[web]
+# Enable the web server (disabled by default)
+enable = false
 # Server listen address
-listen = "0.0.0.0:8686"
+listen = "[::1]:8686"
 
 # Path to theme configuration
 theme = "themes/default.toml"

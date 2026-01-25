@@ -121,51 +121,9 @@ jobs:
           name: ht32-panel-appimage
           path: ht32-panel-${{ github.ref_name }}-x86_64.AppImage
 
-  build-flatpak:
-    name: Build Flatpak
-    runs-on: ubuntu-latest
-    container:
-      image: bilelmoussaoui/flatpak-github-actions:freedesktop-24.08
-      options: --privileged
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: flatpak-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            flatpak-cargo-
-
-      - name: Generate cargo sources
-        run: |
-          # Placeholder - flatpak-cargo-generator would be used in production
-          echo '[]' > packaging/flatpak/cargo-sources.json
-
-      - name: Build Flatpak
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          manifest-path: packaging/flatpak/org.ht32panel.Daemon.yml
-          bundle: ht32-panel-${{ github.ref_name }}.flatpak
-          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/org.ht32panel.Daemon.yml') }}
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ht32-panel-flatpak
-          path: ht32-panel-${{ github.ref_name }}.flatpak
-
   release:
     name: Create Release
-    needs: [build-linux, build-appimage, build-flatpak]
+    needs: [build-linux, build-appimage]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -192,7 +150,6 @@ jobs:
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.AppImage
-            artifacts/**/*.flatpak
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
         env:

@@ -29,6 +29,9 @@
     cargo-nextest
     cargo-audit
     cargo-outdated
+
+    # Python (for flatpak-cargo-generator)
+    (python3.withPackages (ps: [ ps.aiohttp ps.toml ]))
   ];
 
   # Rust language support

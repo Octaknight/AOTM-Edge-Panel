@@ -9,9 +9,9 @@ use std::path::Path;
 /// Main configuration structure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    /// Server listen address (e.g., "0.0.0.0:8686")
-    #[serde(default = "default_listen")]
-    pub listen: String,
+    /// Web server configuration
+    #[serde(default)]
+    pub web: WebConfig,
 
     /// Path to theme configuration
     #[serde(default = "default_theme")]
@@ -40,6 +40,27 @@ pub struct Config {
     /// Canvas configuration
     #[serde(default)]
     pub canvas: CanvasConfig,
+}
+
+/// Web server configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebConfig {
+    /// Whether to enable the web server
+    #[serde(default)]
+    pub enable: bool,
+
+    /// Server listen address (e.g., "0.0.0.0:8686")
+    #[serde(default = "default_listen")]
+    pub listen: String,
+}
+
+impl Default for WebConfig {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            listen: default_listen(),
+        }
+    }
 }
 
 /// LCD device configuration.
@@ -104,7 +125,7 @@ impl Default for CanvasConfig {
 
 // Default value functions
 fn default_listen() -> String {
-    "0.0.0.0:8686".to_string()
+    "[::1]:8686".to_string()
 }
 
 fn default_theme() -> String {
@@ -167,7 +188,7 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            listen: default_listen(),
+            web: WebConfig::default(),
             theme: default_theme(),
             poll: default_poll(),
             refresh: default_refresh(),

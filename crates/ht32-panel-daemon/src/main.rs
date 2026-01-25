@@ -74,22 +74,31 @@ async fn main() -> Result<()> {
         heartbeat_loop(heartbeat_state, heartbeat_interval).await;
     });
 
-    // Build router (HTMX web UI)
-    let app = web::create_router(state.clone());
+    // Optionally start web server
+    if config.web.enable {
+        let app = web::create_router(state.clone());
+        let addr: SocketAddr = config
+            .web
+            .listen
+            .parse()
+            .context("Invalid listen address")?;
+        let listener = TcpListener::bind(addr).await?;
+        info!("Web server listening on http://{}", addr);
 
-    // Start server
-    let addr: SocketAddr = config.listen.parse().context("Invalid listen address")?;
-    let listener = TcpListener::bind(addr).await?;
-    info!("Server listening on http://{}", addr);
-
-    // Run server with shutdown handling
-    tokio::select! {
-        result = axum::serve(listener, app) => {
-            result?;
+        // Run server with shutdown handling
+        tokio::select! {
+            result = axum::serve(listener, app) => {
+                result?;
+            }
+            _ = shutdown_rx.recv() => {
+                info!("Shutdown requested via D-Bus");
+            }
         }
-        _ = shutdown_rx.recv() => {
-            info!("Shutdown requested via D-Bus");
-        }
+    } else {
+        info!("Web server disabled");
+        // Wait for shutdown signal
+        shutdown_rx.recv().await;
+        info!("Shutdown requested via D-Bus");
     }
 
     Ok(())
