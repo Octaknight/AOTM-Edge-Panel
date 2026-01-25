@@ -53,12 +53,12 @@
     '';
 
     # Test commands
-    test.exec = ''
+    run-tests.exec = ''
       echo "Running tests..."
       cargo nextest run --workspace
     '';
 
-    test-unit.exec = ''
+    run-tests-unit.exec = ''
       echo "Running unit tests..."
       cargo nextest run --workspace --lib
     '';
@@ -124,7 +124,7 @@
       echo "Running CI checks locally..."
       fmt-check
       lint
-      test
+      run-tests
       build
     '';
   };
@@ -137,7 +137,7 @@
     echo "Available commands:"
     echo "  build         - Build all crates"
     echo "  build-release - Build release binaries"
-    echo "  test          - Run all tests"
+    echo "  run-tests     - Run all tests"
     echo "  lint          - Run clippy linter"
     echo "  fmt           - Format code"
     echo "  daemon        - Start the daemon (includes HTMX web UI)"
