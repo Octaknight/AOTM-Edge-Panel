@@ -50,7 +50,6 @@ tar -xzf ht32-panel-*-x86_64-linux.tar.gz
 
   services.ht32-panel = {
     enable = true;
-    openFirewall = true;
     led.theme = 2;  # breathing
   };
 }

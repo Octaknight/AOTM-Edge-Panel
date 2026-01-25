@@ -10,7 +10,7 @@ in
 
     package = lib.mkPackageOption pkgs "ht32-panel" {
       default = null;
-      description = "The ht32-panel package to use.";
+      nullable = true;
     };
 
     user = lib.mkOption {
@@ -132,7 +132,7 @@ in
 
       package = lib.mkPackageOption pkgs "ht32-panel-applet" {
         default = null;
-        description = "The ht32-panel-applet package to use.";
+        nullable = true;
       };
 
       autostart = lib.mkOption {
