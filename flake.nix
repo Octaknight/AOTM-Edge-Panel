@@ -97,8 +97,8 @@
       nixosModules.default = { config, lib, pkgs, ... }: {
         imports = [ ./nix/module.nix ];
         config = lib.mkIf config.services.ht32-panel.enable {
-          services.ht32-panel.package = lib.mkDefault self.packages.${pkgs.system}.default;
-          services.ht32-panel.applet.package = lib.mkDefault self.packages.${pkgs.system}.ht32-panel-applet;
+          services.ht32-panel.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          services.ht32-panel.applet.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.ht32-panel-applet;
         };
       };
       nixosModules.ht32-panel = self.nixosModules.default;
