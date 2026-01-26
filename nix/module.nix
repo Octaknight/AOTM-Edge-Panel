@@ -279,30 +279,11 @@ in
           StateDirectory = "ht32-panel";
           StateDirectoryMode = "0750";
 
-          # Hardening (relaxed for hardware access)
-          NoNewPrivileges = true;
-          ProtectSystem = "full";
-          ProtectHome = true;
+          # Hardening (minimal - hardware access requires broad permissions)
           PrivateTmp = true;
-          ProtectKernelModules = true;
-          ProtectKernelLogs = true;
-          ProtectControlGroups = true;
           ProtectClock = true;
           ProtectHostname = true;
-          RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
-          RestrictRealtime = true;
-          RestrictSUIDSGID = true;
-          LockPersonality = true;
-          SystemCallArchitectures = "native";
-
-          # Device access for USB HID and serial
-          DevicePolicy = "auto";
-          DeviceAllow = [
-            "/dev/bus/usb/*"  # libusb device access
-            "/dev/hidraw*"    # hidraw fallback
-            "/dev/ttyUSB*"    # LED serial port
-            "char-usb_device rwm" # USB device class
-          ];
+          RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
 
           # Supplementary groups for device access
           SupplementaryGroups = [ "dialout" ];
