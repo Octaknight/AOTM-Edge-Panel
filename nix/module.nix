@@ -275,10 +275,6 @@ in
           Restart = "on-failure";
           RestartSec = 5;
 
-          # Directories managed by systemd
-          StateDirectory = "ht32-panel";
-          ConfigurationDirectory = "ht32-panel";
-
           # Hardening
           NoNewPrivileges = true;
           ProtectSystem = "strict";
@@ -312,7 +308,15 @@ in
           ];
 
           # Supplementary groups for device access
-          SupplementaryGroups = [ "dialout" ];
+          SupplementaryGroups = [ "dialout" "plugdev" ];
+
+          # Allow read access to sysfs for device enumeration (hidapi needs this)
+          # ProtectSystem=strict makes paths read-only, but we need bind mounts for /sys
+          BindReadOnlyPaths = [
+            "/sys/class/hidraw"
+            "/sys/bus/usb"
+            "/sys/devices"
+          ];
         };
       };
 

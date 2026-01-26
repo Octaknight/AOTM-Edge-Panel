@@ -90,7 +90,22 @@ impl LedDevice {
 
     /// Opens the serial port and sends data.
     async fn send_packet(&self, packet: [u8; 5]) -> Result<()> {
-        let mut port = tokio_serial::new(&self.port_path, BAUD_RATE).open_native_async()?;
+        let mut port = tokio_serial::new(&self.port_path, BAUD_RATE)
+            .open_native_async()
+            .map_err(|e| {
+                // Check if the error is due to device not existing
+                if let tokio_serial::ErrorKind::Io(kind) = &e.kind {
+                    if *kind == std::io::ErrorKind::NotFound
+                        || *kind == std::io::ErrorKind::PermissionDenied
+                    {
+                        // Check if file actually exists
+                        if !std::path::Path::new(&self.port_path).exists() {
+                            return Error::LedNotFound(self.port_path.clone());
+                        }
+                    }
+                }
+                Error::Serial(e)
+            })?;
 
         // Write byte-by-byte with delay as per protocol
         for byte in packet {
