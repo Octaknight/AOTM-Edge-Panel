@@ -295,6 +295,14 @@ in
           LockPersonality = true;
           SystemCallArchitectures = "native";
 
+          # Device access for USB HID (libusb backend)
+          DevicePolicy = "closed";
+          DeviceAllow = [
+            "/dev/bus/usb/*"  # libusb device access
+            "/dev/hidraw*"    # hidraw fallback
+            "char-usb_device" # USB device class
+          ];
+
           # Supplementary groups for device access
           SupplementaryGroups = [ "dialout" ];
         };
