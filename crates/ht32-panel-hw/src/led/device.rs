@@ -107,13 +107,20 @@ impl LedDevice {
                 Error::Serial(e)
             })?;
 
+        debug!(
+            "Sending LED packet to {}: {:02X?}",
+            self.port_path, packet
+        );
+
         // Write byte-by-byte with delay as per protocol
-        for byte in packet {
-            port.write_all(&[byte]).await?;
+        for (i, byte) in packet.iter().enumerate() {
+            port.write_all(&[*byte]).await?;
+            port.flush().await?; // Ensure byte is sent before delay
+            debug!("LED byte {}: {:02X}", i, byte);
             sleep(Duration::from_millis(BYTE_DELAY_MS)).await;
         }
 
-        debug!("LED packet sent: {:02X?}", packet);
+        debug!("LED packet sent successfully");
         Ok(())
     }
 

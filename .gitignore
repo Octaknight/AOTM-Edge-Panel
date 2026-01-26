@@ -40,3 +40,4 @@ Thumbs.db
 # Build artifacts
 *.tar.gz
 dist/
+AceMagic-S1-LED-TFT-Linux/
