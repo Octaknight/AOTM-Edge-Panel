@@ -35,7 +35,7 @@ tar -xzf ht32-panel-*-x86_64-linux.tar.gz
 ./ht32paneld config/default.toml
 ```
 
-### NixOS
+### NixOS (System Service)
 
 ```nix
 {
@@ -51,6 +51,47 @@ tar -xzf ht32-panel-*-x86_64-linux.tar.gz
   services.ht32-panel = {
     enable = true;
     led.theme = 2;  # breathing
+  };
+}
+```
+
+### Home Manager (User Service)
+
+Run the daemon as a user service with the session D-Bus bus.
+
+Add the input to your flake:
+
+```nix
+{
+  inputs.ht32-panel.url = "github:ananthb/ht32-panel";
+}
+```
+
+In your Home Manager configuration:
+
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.ht32-panel.homeManagerModules.default ];
+
+  services.ht32-panel = {
+    enable = true;
+    led.theme = 2;  # breathing
+    applet.enable = true;  # optional system tray applet
+  };
+}
+```
+
+For hardware access, also add to your NixOS configuration:
+
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.ht32-panel.nixosModules.udevRules ];
+
+  services.ht32-panel.udevRules = {
+    enable = true;
+    group = "users";  # grant access to users group
   };
 }
 ```
@@ -84,7 +125,11 @@ To enable the web UI, set `web.enable = true` in the config file.
 
 ## D-Bus
 
-The daemon exposes `org.ht32panel.Daemon1` on the session bus.
+The daemon exposes `org.ht32panel.Daemon1`. By default:
+- **NixOS module**: Uses the system bus
+- **Home Manager module**: Uses the session bus
+
+Configure with `services.ht32-panel.dbus.bus` (`"system"`, `"session"`, or `"auto"`).
 
 ## Acknowledgement
 

@@ -6,9 +6,10 @@ use std::sync::Arc;
 
 use ht32_panel_hw::{lcd::parse_hex_color, Orientation};
 use tokio::sync::broadcast;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use zbus::{interface, Connection};
 
+use crate::config::DbusBusType;
 use crate::state::AppState;
 
 /// D-Bus signal types for state change notifications.
@@ -189,17 +190,54 @@ impl Daemon1Interface {
     }
 }
 
+/// Connects to the appropriate D-Bus bus based on configuration.
+async fn connect_to_bus(bus_type: DbusBusType) -> anyhow::Result<(Connection, &'static str)> {
+    match bus_type {
+        DbusBusType::Session => {
+            let conn = Connection::session()
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to connect to session bus: {}", e))?;
+            Ok((conn, "session"))
+        }
+        DbusBusType::System => {
+            let conn = Connection::system()
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to connect to system bus: {}", e))?;
+            Ok((conn, "system"))
+        }
+        DbusBusType::Auto => {
+            // Try session bus first, fall back to system bus
+            match Connection::session().await {
+                Ok(conn) => Ok((conn, "session")),
+                Err(session_err) => {
+                    warn!(
+                        "Session bus unavailable ({}), trying system bus",
+                        session_err
+                    );
+                    let conn = Connection::system().await.map_err(|system_err| {
+                        anyhow::anyhow!(
+                            "Failed to connect to any D-Bus: session={}, system={}",
+                            session_err,
+                            system_err
+                        )
+                    })?;
+                    Ok((conn, "system"))
+                }
+            }
+        }
+    }
+}
+
 /// Runs the D-Bus server.
 pub async fn run_dbus_server(
     state: Arc<AppState>,
     signal_tx: broadcast::Sender<DaemonSignals>,
     shutdown_tx: tokio::sync::mpsc::Sender<()>,
+    bus_type: DbusBusType,
 ) -> anyhow::Result<Connection> {
     let interface = Daemon1Interface::new(state, signal_tx, shutdown_tx);
 
-    let connection = Connection::session()
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to connect to session bus: {}", e))?;
+    let (connection, bus_name) = connect_to_bus(bus_type).await?;
 
     connection
         .object_server()
@@ -212,6 +250,9 @@ pub async fn run_dbus_server(
         .await
         .map_err(|e| anyhow::anyhow!("Failed to request bus name: {}", e))?;
 
-    info!("D-Bus service registered at org.ht32panel.Daemon");
+    info!(
+        "D-Bus service registered at org.ht32panel.Daemon on {} bus",
+        bus_name
+    );
     Ok(connection)
 }

@@ -1,7 +1,10 @@
 //! D-Bus client for communicating with the HT32 Panel Daemon.
 
 use anyhow::{Context, Result};
+use tracing::warn;
 use zbus::{proxy, Connection};
+
+use crate::BusType;
 
 /// D-Bus proxy for the HT32 Panel Daemon.
 #[proxy(
@@ -62,10 +65,30 @@ pub struct DaemonClient {
 
 impl DaemonClient {
     /// Attempts to connect to the daemon via D-Bus.
-    pub async fn connect() -> Result<Self> {
-        let connection = Connection::session()
-            .await
-            .context("Failed to connect to session bus")?;
+    pub async fn connect(bus_type: BusType) -> Result<Self> {
+        let connection = match bus_type {
+            BusType::Session => Connection::session()
+                .await
+                .context("Failed to connect to session bus")?,
+            BusType::System => Connection::system()
+                .await
+                .context("Failed to connect to system bus")?,
+            BusType::Auto => {
+                // Try session bus first, fall back to system bus
+                match Connection::session().await {
+                    Ok(conn) => conn,
+                    Err(session_err) => {
+                        warn!(
+                            "Session bus unavailable ({}), trying system bus",
+                            session_err
+                        );
+                        Connection::system()
+                            .await
+                            .context("Failed to connect to any D-Bus")?
+                    }
+                }
+            }
+        };
 
         let proxy = Daemon1Proxy::new(&connection)
             .await

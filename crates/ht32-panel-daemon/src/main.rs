@@ -43,11 +43,15 @@ async fn main() -> Result<()> {
     let (signal_tx, _signal_rx) = broadcast::channel::<DaemonSignals>(16);
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<()>(1);
 
+    // Keep a clone of shutdown_tx to prevent the channel from closing if D-Bus fails
+    let _shutdown_tx_keepalive = shutdown_tx.clone();
+
     // Start D-Bus service
     let dbus_state = state.clone();
     let dbus_signal_tx = signal_tx.clone();
+    let dbus_bus_type = config.dbus.bus;
     let _dbus_connection =
-        match dbus::run_dbus_server(dbus_state, dbus_signal_tx, shutdown_tx).await {
+        match dbus::run_dbus_server(dbus_state, dbus_signal_tx, shutdown_tx, dbus_bus_type).await {
             Ok(conn) => {
                 info!("D-Bus service started");
                 Some(conn)
@@ -74,6 +78,10 @@ async fn main() -> Result<()> {
         heartbeat_loop(heartbeat_state, heartbeat_interval).await;
     });
 
+    // Setup Unix signal handlers
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+
     // Optionally start web server
     if config.web.enable {
         let app = web::create_router(state.clone());
@@ -93,12 +101,27 @@ async fn main() -> Result<()> {
             _ = shutdown_rx.recv() => {
                 info!("Shutdown requested via D-Bus");
             }
+            _ = sigterm.recv() => {
+                info!("Received SIGTERM, shutting down");
+            }
+            _ = sigint.recv() => {
+                info!("Received SIGINT, shutting down");
+            }
         }
     } else {
         info!("Web server disabled");
         // Wait for shutdown signal
-        shutdown_rx.recv().await;
-        info!("Shutdown requested via D-Bus");
+        tokio::select! {
+            _ = shutdown_rx.recv() => {
+                info!("Shutdown requested via D-Bus");
+            }
+            _ = sigterm.recv() => {
+                info!("Received SIGTERM, shutting down");
+            }
+            _ = sigint.recv() => {
+                info!("Received SIGINT, shutting down");
+            }
+        }
     }
 
     Ok(())

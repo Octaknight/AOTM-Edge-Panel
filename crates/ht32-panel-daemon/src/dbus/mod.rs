@@ -1,6 +1,6 @@
 //! D-Bus interface for HT32 Panel Daemon.
 //!
-//! Provides the `org.ht32panel.Daemon1` interface on the session bus.
+//! Provides the `org.ht32panel.Daemon1` interface on the session or system bus.
 
 mod interface;
 

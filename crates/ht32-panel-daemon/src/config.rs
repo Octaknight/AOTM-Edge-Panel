@@ -13,6 +13,10 @@ pub struct Config {
     #[serde(default)]
     pub web: WebConfig,
 
+    /// D-Bus configuration
+    #[serde(default)]
+    pub dbus: DbusConfig,
+
     /// Path to theme configuration
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -59,6 +63,35 @@ impl Default for WebConfig {
         Self {
             enable: false,
             listen: default_listen(),
+        }
+    }
+}
+
+/// D-Bus bus type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DbusBusType {
+    /// Automatically detect: try session bus first, fall back to system bus.
+    #[default]
+    Auto,
+    /// Use the session bus (for user services).
+    Session,
+    /// Use the system bus (for system services).
+    System,
+}
+
+/// D-Bus configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DbusConfig {
+    /// Which D-Bus bus to use.
+    #[serde(default)]
+    pub bus: DbusBusType,
+}
+
+impl Default for DbusConfig {
+    fn default() -> Self {
+        Self {
+            bus: DbusBusType::Auto,
         }
     }
 }
@@ -189,6 +222,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             web: WebConfig::default(),
+            dbus: DbusConfig::default(),
             theme: default_theme(),
             poll: default_poll(),
             refresh: default_refresh(),

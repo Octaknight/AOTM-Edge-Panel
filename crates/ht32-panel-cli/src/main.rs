@@ -10,6 +10,17 @@ use tracing_subscriber::EnvFilter;
 
 use dbus_client::DaemonClient;
 
+#[derive(Clone, Copy, Debug, Default, clap::ValueEnum)]
+enum BusType {
+    /// Try session bus first, fall back to system bus
+    #[default]
+    Auto,
+    /// Use session bus (for user services)
+    Session,
+    /// Use system bus (for system services)
+    System,
+}
+
 #[derive(Parser)]
 #[command(name = "ht32panelctl")]
 #[command(about = "Control tool for HT32 Panel daemon")]
@@ -18,6 +29,10 @@ struct Cli {
     /// Enable verbose logging
     #[arg(short, long)]
     verbose: bool,
+
+    /// D-Bus bus type to use
+    #[arg(long, default_value = "auto", value_enum)]
+    bus: BusType,
 
     #[command(subcommand)]
     command: Commands,
@@ -103,7 +118,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt().with_env_filter(filter).init();
 
     // Connect to daemon
-    let client = DaemonClient::connect()
+    let client = DaemonClient::connect(cli.bus)
         .await
         .context("Failed to connect to daemon. Is ht32paneld running?")?;
 

@@ -9,6 +9,9 @@ let
       enable = cfg.web.enable;
       listen = cfg.web.listen;
     };
+    dbus = {
+      bus = cfg.dbus.bus;
+    };
     theme = cfg.theme;
     poll = cfg.poll;
     refresh = cfg.refresh;
@@ -37,6 +40,25 @@ in
       description = "The ht32-panel package to use.";
     };
 
+    udevRules = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Install udev rules for HT32 Panel hardware access.
+          Enable this even if using the Home Manager module for the daemon,
+          to grant your user access to the hardware devices.
+        '';
+      };
+
+      group = lib.mkOption {
+        type = lib.types.str;
+        default = if cfg.enable then cfg.group else "plugdev";
+        defaultText = lib.literalExpression ''if cfg.enable then cfg.group else "plugdev"'';
+        description = "Group to grant access to hardware devices.";
+      };
+    };
+
     user = lib.mkOption {
       type = lib.types.str;
       default = "ht32-panel";
@@ -60,6 +82,19 @@ in
         type = lib.types.str;
         default = "[::1]:8686";
         description = "Address and port for the web interface.";
+      };
+    };
+
+    dbus = {
+      bus = lib.mkOption {
+        type = lib.types.enum [ "auto" "session" "system" ];
+        default = "system";
+        description = ''
+          Which D-Bus bus to use.
+          - "system": Use the system bus (recommended for system services).
+          - "session": Use the session bus (for user services).
+          - "auto": Try session bus first, fall back to system bus.
+        '';
       };
     };
 
@@ -168,123 +203,142 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    # Create user and group
-    users.users.${cfg.user} = lib.mkIf (cfg.user == "ht32-panel") {
-      isSystemUser = true;
-      group = cfg.group;
-      description = "HT32 Panel daemon user";
-      extraGroups = [ "dialout" "plugdev" ];
-    };
+  config = lib.mkMerge [
+    # Udev rules - can be enabled independently for Home Manager users
+    (lib.mkIf cfg.udevRules.enable {
+      # Udev rules for USB HID access
+      services.udev.extraRules = ''
+        # HT32 Panel LCD (VID:PID 04D9:FD01)
+        SUBSYSTEM=="usb", ATTR{idVendor}=="04d9", ATTR{idProduct}=="fd01", MODE="0660", GROUP="${cfg.udevRules.group}"
+        SUBSYSTEM=="hidraw", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="fd01", MODE="0660", GROUP="${cfg.udevRules.group}"
 
-    users.groups.${cfg.group} = lib.mkIf (cfg.group == "ht32-panel") { };
+        # CH340 serial adapter for LED strip
+        SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", MODE="0660", GROUP="${cfg.udevRules.group}", SYMLINK+="ht32-led"
+      '';
+    })
 
-    # Udev rules for USB HID access
-    services.udev.extraRules = ''
-      # HT32 Panel LCD (VID:PID 04D9:FD01)
-      SUBSYSTEM=="usb", ATTR{idVendor}=="04d9", ATTR{idProduct}=="fd01", MODE="0660", GROUP="${cfg.group}"
-      SUBSYSTEM=="hidraw", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="fd01", MODE="0660", GROUP="${cfg.group}"
-
-      # CH340 serial adapter for LED strip
-      SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", MODE="0660", GROUP="${cfg.group}", SYMLINK+="ht32-led"
-    '';
-
-    # D-Bus service file for on-demand activation
-    services.dbus.packages = lib.mkIf cfg.enable [
-      (pkgs.writeTextFile {
-        name = "ht32-panel-dbus";
-        destination = "/share/dbus-1/services/org.ht32panel.Daemon.service";
-        text = ''
-          [D-BUS Service]
-          Name=org.ht32panel.Daemon
-          Exec=${cfg.package}/bin/ht32paneld ${configFile}
-          User=${cfg.user}
-        '';
-      })
-    ];
-
-    # Systemd service
-    systemd.services.ht32paneld = {
-      description = "HT32 Panel Daemon";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" "dbus.service" ];
-      requires = [ "dbus.service" ];
-
-      environment = {
-        DBUS_SESSION_BUS_ADDRESS = "unix:path=/run/user/\${UID}/bus";
+    # Full service configuration
+    (lib.mkIf cfg.enable {
+      # Create user and group
+      users.users.${cfg.user} = lib.mkIf (cfg.user == "ht32-panel") {
+        isSystemUser = true;
+        group = cfg.group;
+        description = "HT32 Panel daemon user";
+        extraGroups = [ "dialout" "plugdev" ];
       };
 
-      serviceConfig = {
-        Type = "simple";
-        User = cfg.user;
-        Group = cfg.group;
-        ExecStart = "${cfg.package}/bin/ht32paneld ${configFile}";
-        Restart = "on-failure";
-        RestartSec = 5;
+      users.groups.${cfg.group} = lib.mkIf (cfg.group == "ht32-panel") { };
 
-        # Directories managed by systemd
-        StateDirectory = "ht32-panel";
-        ConfigurationDirectory = "ht32-panel";
+      # D-Bus policy files
+      services.dbus.packages = [
+        (pkgs.writeTextFile {
+          name = "ht32-panel-dbus";
+          destination = "/share/dbus-1/${if cfg.dbus.bus == "session" then "services" else "system.d"}/org.ht32panel.Daemon.${if cfg.dbus.bus == "session" then "service" else "conf"}";
+          text = if cfg.dbus.bus == "session" then ''
+            [D-BUS Service]
+            Name=org.ht32panel.Daemon
+            Exec=${cfg.package}/bin/ht32paneld ${configFile}
+            User=${cfg.user}
+          '' else ''
+            <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+              "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+            <busconfig>
+              <!-- Allow ht32-panel user to own the service name -->
+              <policy user="${cfg.user}">
+                <allow own="org.ht32panel.Daemon"/>
+                <allow send_destination="org.ht32panel.Daemon"/>
+                <allow receive_sender="org.ht32panel.Daemon"/>
+              </policy>
 
-        # Hardening
-        NoNewPrivileges = true;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        PrivateTmp = true;
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectKernelLogs = true;
-        ProtectControlGroups = true;
-        ProtectClock = true;
-        ProtectHostname = true;
-        ProtectProc = "invisible";
-        ProcSubset = "pid";
-        RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
-        RestrictNamespaces = true;
-        RestrictRealtime = true;
-        RestrictSUIDSGID = true;
-        LockPersonality = true;
-        MemoryDenyWriteExecute = true;
-        SystemCallArchitectures = "native";
-        SystemCallFilter = [ "@system-service" "~@privileged" "~@resources" ];
-        CapabilityBoundingSet = "";
-        DevicePolicy = "closed";
+              <!-- Allow anyone to call methods on the interface -->
+              <policy context="default">
+                <allow send_destination="org.ht32panel.Daemon"/>
+                <allow receive_sender="org.ht32panel.Daemon"/>
+              </policy>
+            </busconfig>
+          '';
+        })
+      ];
 
-        # Allow access to USB devices
-        DeviceAllow = [
-          "/dev/hidraw* rw"
-          "/dev/ttyUSB* rw"
-          "/dev/ttyACM* rw"
+      # Systemd service
+      systemd.services.ht32paneld = {
+        description = "HT32 Panel Daemon";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network.target" "dbus.service" ];
+        requires = [ "dbus.service" ];
+
+        serviceConfig = {
+          Type = "simple";
+          User = cfg.user;
+          Group = cfg.group;
+          ExecStart = "${cfg.package}/bin/ht32paneld ${configFile}";
+          Restart = "on-failure";
+          RestartSec = 5;
+
+          # Directories managed by systemd
+          StateDirectory = "ht32-panel";
+          ConfigurationDirectory = "ht32-panel";
+
+          # Hardening
+          NoNewPrivileges = true;
+          ProtectSystem = "strict";
+          ProtectHome = true;
+          PrivateTmp = true;
+          ProtectKernelTunables = true;
+          ProtectKernelModules = true;
+          ProtectKernelLogs = true;
+          ProtectControlGroups = true;
+          ProtectClock = true;
+          ProtectHostname = true;
+          ProtectProc = "invisible";
+          ProcSubset = "pid";
+          RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          LockPersonality = true;
+          MemoryDenyWriteExecute = true;
+          SystemCallArchitectures = "native";
+          SystemCallFilter = [ "@system-service" "~@privileged" "~@resources" ];
+          CapabilityBoundingSet = "";
+          DevicePolicy = "closed";
+
+          # Allow access to USB devices
+          DeviceAllow = [
+            "/dev/hidraw* rw"
+            "/dev/ttyUSB* rw"
+            "/dev/ttyACM* rw"
+          ];
+        };
+      };
+
+      # Open firewall if requested (only if web server is enabled)
+      networking.firewall = lib.mkIf (cfg.openFirewall && cfg.web.enable) {
+        allowedTCPPorts = [
+          (lib.toInt (lib.last (lib.splitString ":" cfg.web.listen)))
         ];
       };
-    };
 
-    # Open firewall if requested (only if web server is enabled)
-    networking.firewall = lib.mkIf (cfg.openFirewall && cfg.web.enable) {
-      allowedTCPPorts = [
-        (lib.toInt (lib.last (lib.splitString ":" cfg.web.listen)))
-      ];
-    };
+      # Add package to system packages for CLI access
+      environment.systemPackages = [ cfg.package ]
+        ++ lib.optional (cfg.applet.enable && cfg.applet.package != null) cfg.applet.package;
 
-    # Add package to system packages for CLI access
-    environment.systemPackages = [ cfg.package ]
-      ++ lib.optional (cfg.applet.enable && cfg.applet.package != null) cfg.applet.package;
-
-    # Applet autostart desktop entry
-    environment.etc = lib.mkIf (cfg.applet.enable && cfg.applet.autostart && cfg.applet.package != null) {
-      "xdg/autostart/ht32-panel-applet.desktop".text = ''
-        [Desktop Entry]
-        Type=Application
-        Name=HT32 Panel Applet
-        Comment=System tray applet for HT32 Panel control
-        Exec=${cfg.applet.package}/bin/ht32-panel-applet
-        Icon=display-brightness-symbolic
-        Categories=System;Monitor;
-        StartupNotify=false
-        X-GNOME-Autostart-enabled=true
-      '';
-    };
-  };
+      # Applet autostart desktop entry
+      environment.etc = lib.mkIf (cfg.applet.enable && cfg.applet.autostart && cfg.applet.package != null) {
+        "xdg/autostart/ht32-panel-applet.desktop".text = ''
+          [Desktop Entry]
+          Type=Application
+          Name=HT32 Panel Applet
+          Comment=System tray applet for HT32 Panel control
+          Exec=${cfg.applet.package}/bin/ht32-panel-applet
+          Icon=display-brightness-symbolic
+          Categories=System;Monitor;
+          StartupNotify=false
+          X-GNOME-Autostart-enabled=true
+        '';
+      };
+    })
+  ];
 
   meta.maintainers = [ ];
 }

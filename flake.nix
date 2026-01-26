@@ -98,6 +98,7 @@
         };
       }
     ) // {
+      # NixOS modules (system-level service)
       nixosModules.default = { config, lib, pkgs, ... }: {
         imports = [ ./nix/module.nix ];
         config = lib.mkIf config.services.ht32-panel.enable {
@@ -106,6 +107,45 @@
         };
       };
       nixosModules.ht32-panel = self.nixosModules.default;
+
+      # Standalone udev rules module (for use with Home Manager)
+      # Import this in your NixOS config when using the Home Manager module
+      nixosModules.udevRules = { config, lib, ... }:
+        let
+          cfg = config.services.ht32-panel.udevRules;
+        in {
+          options.services.ht32-panel.udevRules = {
+            enable = lib.mkEnableOption "udev rules for HT32 Panel hardware access";
+
+            group = lib.mkOption {
+              type = lib.types.str;
+              default = "users";
+              description = "Group to grant access to hardware devices.";
+            };
+          };
+
+          config = lib.mkIf cfg.enable {
+            services.udev.extraRules = ''
+              # HT32 Panel LCD (VID:PID 04D9:FD01)
+              SUBSYSTEM=="usb", ATTR{idVendor}=="04d9", ATTR{idProduct}=="fd01", MODE="0660", GROUP="${cfg.group}"
+              SUBSYSTEM=="hidraw", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="fd01", MODE="0660", GROUP="${cfg.group}"
+
+              # CH340 serial adapter for LED strip
+              SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", MODE="0660", GROUP="${cfg.group}", SYMLINK+="ht32-led"
+            '';
+          };
+        };
+
+      # Home Manager modules (user-level service)
+      homeManagerModules.default = { config, lib, pkgs, osConfig ? null, ... }: {
+        imports = [ ./nix/home-module.nix ];
+        config = lib.mkIf config.services.ht32-panel.enable {
+          services.ht32-panel.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          services.ht32-panel.cli.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.ht32panelctl;
+          services.ht32-panel.applet.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.ht32-panel-applet;
+        };
+      };
+      homeManagerModules.ht32-panel = self.homeManagerModules.default;
 
       overlays.default = final: prev: {
         ht32-panel = self.packages.${prev.system}.default;
