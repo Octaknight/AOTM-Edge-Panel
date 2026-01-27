@@ -68,9 +68,9 @@ async fn main() -> Result<()> {
                             let mut s = cmd_state.lock().unwrap();
                             s.face = face;
                         }
-                        if let Ok(rate) = c.get_refresh_rate().await {
+                        if let Ok(rate) = c.get_refresh_interval().await {
                             let mut s = cmd_state.lock().unwrap();
-                            s.refresh_rate = rate;
+                            s.refresh_interval = rate;
                         }
                         if let Ok(iface) = c.get_network_interface().await {
                             let mut s = cmd_state.lock().unwrap();
@@ -142,12 +142,12 @@ async fn main() -> Result<()> {
                                 }
                             }
                         }
-                        Some(TrayCommand::SetRefreshRate(secs)) => {
+                        Some(TrayCommand::SetRefreshInterval(secs)) => {
                             if let Some(ref c) = client {
-                                match c.set_refresh_rate(secs).await {
+                                match c.set_refresh_interval(secs).await {
                                     Ok(()) => {
                                         let mut s = cmd_state.lock().unwrap();
-                                        s.refresh_rate = secs;
+                                        s.refresh_interval = secs;
                                         debug!("Refresh rate set to {}s", secs);
                                     }
                                     Err(e) => {

@@ -57,10 +57,10 @@ enum Commands {
         #[command(subcommand)]
         action: LedCommands,
     },
-    /// Color settings
-    Colors {
+    /// Color theme settings
+    Theme {
         #[command(subcommand)]
-        action: ColorsCommands,
+        action: ThemeCommands,
     },
     /// Background image settings
     Background {
@@ -103,10 +103,10 @@ enum LcdCommands {
         /// Face name: minimal, detailed (omit to show current)
         face: Option<String>,
     },
-    /// Set or show the refresh rate
+    /// Set or show the refresh interval
     Refresh {
-        /// Refresh rate in seconds (2-60, omit to show current)
-        seconds: Option<u32>,
+        /// Refresh interval in milliseconds (200-60000, omit to show current)
+        milliseconds: Option<u32>,
     },
     /// Show device information
     Info,
@@ -142,19 +142,16 @@ enum DaemonCommands {
 }
 
 #[derive(Subcommand)]
-enum ColorsCommands {
-    /// Show current colors
+enum ThemeCommands {
+    /// Show current theme
     Show,
-    /// Set background color
-    Background {
-        /// Color in hex format (e.g., #000000)
-        color: String,
+    /// Set theme by name
+    Set {
+        /// Theme name (default, hacker, solarized-light, solarized-dark, nord, tokyonight)
+        name: String,
     },
-    /// Set foreground/text color
-    Foreground {
-        /// Color in hex format (e.g., #FFFFFF)
-        color: String,
-    },
+    /// List available themes
+    List,
 }
 
 #[derive(Subcommand)]
@@ -203,7 +200,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Lcd { action } => handle_lcd(action, &client).await,
         Commands::Led { action } => handle_led(action, &client).await,
-        Commands::Colors { action } => handle_colors(action, &client).await,
+        Commands::Theme { action } => handle_theme(action, &client).await,
         Commands::Background { action } => handle_background(action, &client).await,
         Commands::Network { action } => handle_network(action, &client).await,
         Commands::Screenshot { output } => handle_screenshot(&output, &client).await,
@@ -230,28 +227,28 @@ async fn handle_lcd(action: LcdCommands, client: &DaemonClient) -> Result<()> {
                 println!("Current face: {}", current);
             }
         }
-        LcdCommands::Refresh { seconds } => {
-            if let Some(secs) = seconds {
-                if !(2..=60).contains(&secs) {
-                    anyhow::bail!("Refresh rate must be between 2 and 60 seconds");
+        LcdCommands::Refresh { milliseconds } => {
+            if let Some(ms) = milliseconds {
+                if !(200..=60000).contains(&ms) {
+                    anyhow::bail!("Refresh interval must be between 200 and 60000 milliseconds");
                 }
-                client.set_refresh_rate(secs).await?;
-                println!("Refresh rate set to: {}s", secs);
+                client.set_refresh_interval(ms).await?;
+                println!("Refresh interval set to: {}ms", ms);
             } else {
-                let current = client.get_refresh_rate().await?;
-                println!("Current refresh rate: {}s", current);
+                let current = client.get_refresh_interval().await?;
+                println!("Current refresh interval: {}ms", current);
             }
         }
         LcdCommands::Info => {
             let connected = client.is_connected().await?;
             let orientation = client.get_orientation().await?;
             let face = client.get_face().await?;
-            let refresh = client.get_refresh_rate().await?;
+            let refresh = client.get_refresh_interval().await?;
             println!("LCD Status:");
             println!("  Connected: {}", if connected { "yes" } else { "no" });
             println!("  Orientation: {}", orientation);
             println!("  Face: {}", face);
-            println!("  Refresh rate: {}s", refresh);
+            println!("  Refresh interval: {}ms", refresh);
         }
     }
 
@@ -331,22 +328,22 @@ async fn handle_daemon(action: DaemonCommands, client: &DaemonClient) -> Result<
     Ok(())
 }
 
-async fn handle_colors(action: ColorsCommands, client: &DaemonClient) -> Result<()> {
+async fn handle_theme(action: ThemeCommands, client: &DaemonClient) -> Result<()> {
     match action {
-        ColorsCommands::Show => {
-            let bg = client.get_background_color().await?;
-            let fg = client.get_foreground_color().await?;
-            println!("Colors:");
-            println!("  Background: {}", bg);
-            println!("  Foreground: {}", fg);
+        ThemeCommands::Show => {
+            let theme = client.get_theme().await?;
+            println!("Current theme: {}", theme);
         }
-        ColorsCommands::Background { color } => {
-            client.set_background_color(&color).await?;
-            println!("Background color set to: {}", color);
+        ThemeCommands::Set { name } => {
+            client.set_theme(&name).await?;
+            println!("Theme set to: {}", name);
         }
-        ColorsCommands::Foreground { color } => {
-            client.set_foreground_color(&color).await?;
-            println!("Foreground color set to: {}", color);
+        ThemeCommands::List => {
+            let themes = client.list_themes().await?;
+            println!("Available themes:");
+            for theme in themes {
+                println!("  {}", theme);
+            }
         }
     }
 

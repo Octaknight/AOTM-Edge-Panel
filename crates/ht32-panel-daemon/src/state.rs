@@ -14,7 +14,7 @@ use std::sync::{Mutex, RwLock};
 use tracing::{debug, info, warn};
 
 use crate::config::Config;
-use crate::faces::{self, Face};
+use crate::faces::{self, Face, Theme};
 use crate::rendering::Canvas;
 use crate::sensors::{
     data::SystemData, CpuSensor, DiskSensor, MemorySensor, NetworkSensor, Sensor, SystemInfo,
@@ -31,13 +31,9 @@ pub struct DisplaySettings {
     #[serde(default)]
     pub orientation: String,
 
-    /// Background color (RGB888 hex string, e.g., "#000000").
-    #[serde(default = "default_bg_color")]
-    pub background_color: String,
-
-    /// Foreground/text color (RGB888 hex string, e.g., "#FFFFFF").
-    #[serde(default = "default_fg_color")]
-    pub foreground_color: String,
+    /// Color theme preset name.
+    #[serde(default = "default_theme")]
+    pub theme: String,
 
     /// Optional background image path.
     #[serde(default)]
@@ -55,9 +51,9 @@ pub struct DisplaySettings {
     #[serde(default = "default_led_value")]
     pub led_speed: u8,
 
-    /// Refresh rate in seconds (2-60).
-    #[serde(default = "default_refresh_rate")]
-    pub refresh_rate_secs: u32,
+    /// Refresh interval in milliseconds (200-60000).
+    #[serde(default = "default_refresh_interval")]
+    pub refresh_interval_ms: u32,
 
     /// Network interface to monitor (None = auto-detect).
     #[serde(default)]
@@ -65,15 +61,11 @@ pub struct DisplaySettings {
 }
 
 fn default_face() -> String {
-    "detailed".to_string()
+    "professional".to_string()
 }
 
-fn default_bg_color() -> String {
-    "#000000".to_string()
-}
-
-fn default_fg_color() -> String {
-    "#FFFFFF".to_string()
+fn default_theme() -> String {
+    "default".to_string()
 }
 
 fn default_led_theme() -> u8 {
@@ -84,17 +76,8 @@ fn default_led_value() -> u8 {
     3
 }
 
-fn default_refresh_rate() -> u32 {
-    2
-}
-
-/// Parse a hex color string (e.g., "#FFFFFF" or "FFFFFF") to RGB888.
-fn parse_hex_color(hex: &str) -> Option<u32> {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
-        return None;
-    }
-    u32::from_str_radix(hex, 16).ok()
+fn default_refresh_interval() -> u32 {
+    500 // 500ms default
 }
 
 impl Default for DisplaySettings {
@@ -102,13 +85,12 @@ impl Default for DisplaySettings {
         Self {
             face: default_face(),
             orientation: "landscape".to_string(),
-            background_color: default_bg_color(),
-            foreground_color: default_fg_color(),
+            theme: default_theme(),
             background_image: None,
             led_theme: default_led_theme(),
             led_intensity: default_led_value(),
             led_speed: default_led_value(),
-            refresh_rate_secs: default_refresh_rate(),
+            refresh_interval_ms: default_refresh_interval(),
             network_interface: None,
         }
     }
@@ -144,7 +126,7 @@ impl Sensors {
         }
     }
 
-    fn sample(&mut self) -> SystemData {
+    fn sample(&mut self, show_seconds: bool) -> SystemData {
         // Sample all sensors
         let cpu_percent = self.cpu.sample();
         let ram_percent = self.memory.sample();
@@ -153,7 +135,7 @@ impl Sensors {
 
         SystemData {
             hostname: self.system.hostname(),
-            time: self.system.time(),
+            time: self.system.time(show_seconds),
             uptime: self.system.uptime(),
             cpu_percent,
             ram_percent,
@@ -208,17 +190,14 @@ pub struct AppState {
     /// Current display face
     face: RwLock<Box<dyn Face>>,
 
-    /// Background color (RGB888)
-    background_color: RwLock<u32>,
-
-    /// Foreground color (RGB888)
-    foreground_color: RwLock<u32>,
+    /// Current color theme name
+    theme_name: RwLock<String>,
 
     /// Background image path (optional)
     background_image: RwLock<Option<PathBuf>>,
 
-    /// Refresh rate in seconds (2-60)
-    refresh_rate_secs: RwLock<u32>,
+    /// Refresh interval in milliseconds (200-60000)
+    refresh_interval_ms: RwLock<u32>,
 
     /// Network interface to monitor (None = auto-detect)
     network_interface: RwLock<Option<String>>,
@@ -274,26 +253,22 @@ impl AppState {
         // Load face from settings
         let face = faces::create_face(&settings.face).unwrap_or_else(|| {
             warn!(
-                "Unknown face '{}', falling back to 'detailed'",
+                "Unknown face '{}', falling back to 'professional'",
                 settings.face
             );
-            faces::create_face("detailed").unwrap()
+            faces::create_face("professional").unwrap()
         });
         info!("Using display face: {}", face.name());
 
-        // Parse colors
-        let bg_color = parse_hex_color(&settings.background_color).unwrap_or(0x000000);
-        let fg_color = parse_hex_color(&settings.foreground_color).unwrap_or(0xFFFFFF);
-
-        // Set canvas background
-        canvas.set_background(bg_color);
+        // Load theme and set canvas background
+        let theme = Theme::from_preset(&settings.theme);
+        canvas.set_background(theme.background);
 
         // Parse background image path
         let bg_image = settings.background_image.map(PathBuf::from);
 
         info!("Display orientation: {}", orientation);
-        info!("Background color: #{:06X}", bg_color);
-        info!("Foreground color: #{:06X}", fg_color);
+        info!("Theme: {}", settings.theme);
 
         Ok(Self {
             led_device_path: config.devices.led.clone(),
@@ -310,10 +285,9 @@ impl AppState {
             needs_led_update: RwLock::new(true),
             sensors: Mutex::new(sensors),
             face: RwLock::new(face),
-            background_color: RwLock::new(bg_color),
-            foreground_color: RwLock::new(fg_color),
+            theme_name: RwLock::new(settings.theme),
             background_image: RwLock::new(bg_image),
-            refresh_rate_secs: RwLock::new(settings.refresh_rate_secs),
+            refresh_interval_ms: RwLock::new(settings.refresh_interval_ms),
             network_interface: RwLock::new(network_interface),
         })
     }
@@ -334,8 +308,7 @@ impl AppState {
         let settings = DisplaySettings {
             face: self.face.read().unwrap().name().to_string(),
             orientation: self.orientation.read().unwrap().to_string(),
-            background_color: format!("#{:06X}", *self.background_color.read().unwrap()),
-            foreground_color: format!("#{:06X}", *self.foreground_color.read().unwrap()),
+            theme: self.theme_name.read().unwrap().clone(),
             background_image: self
                 .background_image
                 .read()
@@ -345,7 +318,7 @@ impl AppState {
             led_theme: *self.led_theme.read().unwrap(),
             led_intensity: *self.led_intensity.read().unwrap(),
             led_speed: *self.led_speed.read().unwrap(),
-            refresh_rate_secs: *self.refresh_rate_secs.read().unwrap(),
+            refresh_interval_ms: *self.refresh_interval_ms.read().unwrap(),
             network_interface: self.network_interface.read().unwrap().clone(),
         };
 
@@ -421,17 +394,17 @@ impl AppState {
         Ok(())
     }
 
-    /// Gets the current refresh rate in seconds.
-    pub fn refresh_rate_secs(&self) -> u32 {
-        *self.refresh_rate_secs.read().unwrap()
+    /// Gets the current refresh interval in milliseconds.
+    pub fn refresh_interval_ms(&self) -> u32 {
+        *self.refresh_interval_ms.read().unwrap()
     }
 
-    /// Sets the refresh rate in seconds (clamped to 2-60).
-    pub fn set_refresh_rate_secs(&self, secs: u32) {
-        let clamped = secs.clamp(2, 60);
-        *self.refresh_rate_secs.write().unwrap() = clamped;
+    /// Sets the refresh interval in milliseconds (clamped to 200-60000).
+    pub fn set_refresh_interval_ms(&self, ms: u32) {
+        let clamped = ms.clamp(200, 60000);
+        *self.refresh_interval_ms.write().unwrap() = clamped;
         self.save_display_settings();
-        info!("Refresh rate set to {}s", clamped);
+        info!("Refresh interval set to {}ms", clamped);
     }
 
     /// Gets the current LED settings.
@@ -484,13 +457,18 @@ impl AppState {
     /// Samples all sensors and returns the current system data.
     fn sample_sensors(&self) -> SystemData {
         let mut sensors = self.sensors.lock().unwrap();
-        sensors.sample()
+        // Show seconds in clock if refresh interval is 1 second or less
+        let show_seconds = self.refresh_interval_ms() <= 1000;
+        sensors.sample(show_seconds)
     }
 
     /// Renders a frame and updates the display.
     pub async fn render_frame(&self) -> Result<()> {
         // Always sample sensors and render the face (faces update every frame)
         let system_data = self.sample_sensors();
+
+        // Get theme from current preset
+        let theme = Theme::from_preset(&self.theme_name.read().unwrap());
 
         {
             // Get canvas and render face
@@ -499,7 +477,7 @@ impl AppState {
 
             // Clear and render face
             canvas.clear();
-            face.render(&mut canvas, &system_data);
+            face.render(&mut canvas, &system_data, &theme);
         }
 
         // Render canvas to framebuffer with orientation transformation
@@ -673,47 +651,36 @@ impl AppState {
         self.face.read().unwrap().name().to_string()
     }
 
-    /// Gets the background color (RGB888).
-    pub fn background_color(&self) -> u32 {
-        *self.background_color.read().unwrap()
+    /// Gets the current theme name.
+    pub fn theme_name(&self) -> String {
+        self.theme_name.read().unwrap().clone()
     }
 
-    /// Sets the background color (RGB888).
-    pub fn set_background_color(&self, color: u32) {
-        *self.background_color.write().unwrap() = color;
-        self.canvas.write().unwrap().set_background(color);
+    /// Sets the theme by name.
+    pub fn set_theme(&self, name: &str) -> Result<()> {
+        // Validate theme exists
+        if !faces::available_themes().contains(&name) {
+            return Err(anyhow::anyhow!("Unknown theme: {}", name));
+        }
+
+        *self.theme_name.write().unwrap() = name.to_string();
+
+        // Update canvas background
+        let theme = Theme::from_preset(name);
+        self.canvas
+            .write()
+            .unwrap()
+            .set_background(theme.background);
+
         *self.needs_redraw.write().unwrap() = true;
         self.save_display_settings();
-        info!("Background color set to #{:06X}", color);
-    }
-
-    /// Sets the background color from a hex string (e.g., "#FFFFFF").
-    pub fn set_background_color_hex(&self, hex: &str) -> Result<()> {
-        let color =
-            parse_hex_color(hex).ok_or_else(|| anyhow::anyhow!("Invalid hex color: {}", hex))?;
-        self.set_background_color(color);
+        info!("Theme set to: {}", name);
         Ok(())
     }
 
-    /// Gets the foreground/text color (RGB888).
-    pub fn foreground_color(&self) -> u32 {
-        *self.foreground_color.read().unwrap()
-    }
-
-    /// Sets the foreground/text color (RGB888).
-    pub fn set_foreground_color(&self, color: u32) {
-        *self.foreground_color.write().unwrap() = color;
-        *self.needs_redraw.write().unwrap() = true;
-        self.save_display_settings();
-        info!("Foreground color set to #{:06X}", color);
-    }
-
-    /// Sets the foreground color from a hex string (e.g., "#FFFFFF").
-    pub fn set_foreground_color_hex(&self, hex: &str) -> Result<()> {
-        let color =
-            parse_hex_color(hex).ok_or_else(|| anyhow::anyhow!("Invalid hex color: {}", hex))?;
-        self.set_foreground_color(color);
-        Ok(())
+    /// Returns a list of available theme names.
+    pub fn available_themes(&self) -> Vec<&'static str> {
+        faces::available_themes()
     }
 
     /// Gets the background image path (if any).
@@ -737,8 +704,7 @@ impl AppState {
         DisplaySettings {
             face: self.face.read().unwrap().name().to_string(),
             orientation: self.orientation.read().unwrap().to_string(),
-            background_color: format!("#{:06X}", *self.background_color.read().unwrap()),
-            foreground_color: format!("#{:06X}", *self.foreground_color.read().unwrap()),
+            theme: self.theme_name.read().unwrap().clone(),
             background_image: self
                 .background_image
                 .read()
@@ -748,7 +714,7 @@ impl AppState {
             led_theme: *self.led_theme.read().unwrap(),
             led_intensity: *self.led_intensity.read().unwrap(),
             led_speed: *self.led_speed.read().unwrap(),
-            refresh_rate_secs: *self.refresh_rate_secs.read().unwrap(),
+            refresh_interval_ms: *self.refresh_interval_ms.read().unwrap(),
             network_interface: self.network_interface.read().unwrap().clone(),
         }
     }

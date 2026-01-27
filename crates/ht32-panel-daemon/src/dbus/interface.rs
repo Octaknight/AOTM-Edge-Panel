@@ -100,36 +100,29 @@ impl Daemon1Interface {
         self.state.face_name()
     }
 
-    /// Gets the background color as a hex string (e.g., "#000000").
-    fn get_background_color(&self) -> String {
-        format!("#{:06X}", self.state.background_color())
+    /// Gets the current color theme name.
+    fn get_theme(&self) -> String {
+        self.state.theme_name()
     }
 
-    /// Sets the background color from a hex string (e.g., "#000000").
-    fn set_background_color(&self, color: &str) -> zbus::fdo::Result<()> {
+    /// Sets the color theme by name.
+    fn set_theme(&self, name: &str) -> zbus::fdo::Result<()> {
         self.state
-            .set_background_color_hex(color)
+            .set_theme(name)
             .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
 
         let _ = self.signal_tx.send(DaemonSignals::DisplaySettingsChanged);
-        debug!("D-Bus: SetBackgroundColor({})", color);
+        debug!("D-Bus: SetTheme({})", name);
         Ok(())
     }
 
-    /// Gets the foreground/text color as a hex string (e.g., "#FFFFFF").
-    fn get_foreground_color(&self) -> String {
-        format!("#{:06X}", self.state.foreground_color())
-    }
-
-    /// Sets the foreground/text color from a hex string (e.g., "#FFFFFF").
-    fn set_foreground_color(&self, color: &str) -> zbus::fdo::Result<()> {
+    /// Lists available color themes.
+    fn list_themes(&self) -> Vec<String> {
         self.state
-            .set_foreground_color_hex(color)
-            .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
-
-        let _ = self.signal_tx.send(DaemonSignals::DisplaySettingsChanged);
-        debug!("D-Bus: SetForegroundColor({})", color);
-        Ok(())
+            .available_themes()
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
     }
 
     /// Gets the background image path (empty string if none).
@@ -266,16 +259,10 @@ impl Daemon1Interface {
         self.state.led_settings().2
     }
 
-    /// Current background color (hex string).
+    /// Current color theme name.
     #[zbus(property)]
-    fn background_color(&self) -> String {
-        format!("#{:06X}", self.state.background_color())
-    }
-
-    /// Current foreground/text color (hex string).
-    #[zbus(property)]
-    fn foreground_color(&self) -> String {
-        format!("#{:06X}", self.state.foreground_color())
+    fn theme(&self) -> String {
+        self.state.theme_name()
     }
 
     /// Current background image path (empty if none).
@@ -293,26 +280,26 @@ impl Daemon1Interface {
         self.state.face_name()
     }
 
-    /// Current refresh rate in seconds.
+    /// Current refresh interval in milliseconds.
     #[zbus(property)]
-    fn refresh_rate(&self) -> u32 {
-        self.state.refresh_rate_secs()
+    fn refresh_interval(&self) -> u32 {
+        self.state.refresh_interval_ms()
     }
 
-    /// Gets the refresh rate in seconds.
-    fn get_refresh_rate(&self) -> u32 {
-        self.state.refresh_rate_secs()
+    /// Gets the refresh interval in milliseconds.
+    fn get_refresh_interval(&self) -> u32 {
+        self.state.refresh_interval_ms()
     }
 
-    /// Sets the refresh rate in seconds (2-60).
-    fn set_refresh_rate(&self, secs: u32) -> zbus::fdo::Result<()> {
-        if !(2..=60).contains(&secs) {
+    /// Sets the refresh interval in milliseconds (200-60000).
+    fn set_refresh_interval(&self, ms: u32) -> zbus::fdo::Result<()> {
+        if !(200..=60000).contains(&ms) {
             return Err(zbus::fdo::Error::InvalidArgs(
-                "Refresh rate must be 2-60 seconds".to_string(),
+                "Refresh interval must be 200-60000 milliseconds".to_string(),
             ));
         }
-        self.state.set_refresh_rate_secs(secs);
-        debug!("D-Bus: SetRefreshRate({})", secs);
+        self.state.set_refresh_interval_ms(ms);
+        debug!("D-Bus: SetRefreshInterval({}ms)", ms);
         Ok(())
     }
 

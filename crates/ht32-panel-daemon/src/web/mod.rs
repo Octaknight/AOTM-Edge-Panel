@@ -49,12 +49,12 @@ struct LedTemplate {
     speed: u8,
 }
 
-/// Colors partial template.
+/// Theme partial template.
 #[derive(Template)]
-#[template(path = "partials/colors.html")]
-struct ColorsTemplate {
-    background_color: String,
-    foreground_color: String,
+#[template(path = "partials/theme.html")]
+struct ThemeTemplate {
+    current: String,
+    themes: Vec<String>,
 }
 
 /// Background image partial template.
@@ -92,7 +92,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/orientation", get(orientation_get).post(orientation_set))
         .route("/face", get(face_get).post(face_set))
         .route("/led", get(led_get).post(led_set))
-        .route("/colors", get(colors_get).post(colors_set))
+        .route("/theme", get(theme_get).post(theme_set))
         .route("/background", get(background_get).post(background_set))
         .route("/background/clear", post(background_clear))
         .route(
@@ -100,7 +100,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             get(network_interface_get).post(network_interface_set),
         )
         .route("/preview", get(preview_get))
-        .route("/refresh-rate", post(refresh_rate_set))
+        .route("/refresh-interval", post(refresh_interval_set))
         // State
         .with_state(state)
 }
@@ -233,45 +233,36 @@ async fn led_set(
     )
 }
 
-/// GET /colors - Color controls partial
-async fn colors_get(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let background_color = format!("#{:06X}", state.background_color());
-    let foreground_color = format!("#{:06X}", state.foreground_color());
-    Html(
-        ColorsTemplate {
-            background_color,
-            foreground_color,
-        }
-        .render()
-        .unwrap(),
-    )
+/// GET /theme - Theme controls partial
+async fn theme_get(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let current = state.theme_name();
+    let themes: Vec<String> = state
+        .available_themes()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    Html(ThemeTemplate { current, themes }.render().unwrap())
 }
 
-/// Form data for colors.
+/// Form data for theme.
 #[derive(Deserialize)]
-struct ColorsForm {
-    background_color: String,
-    foreground_color: String,
+struct ThemeForm {
+    theme: String,
 }
 
-/// POST /colors - Set colors
-async fn colors_set(
+/// POST /theme - Set theme
+async fn theme_set(
     State(state): State<Arc<AppState>>,
-    Form(form): Form<ColorsForm>,
+    Form(form): Form<ThemeForm>,
 ) -> impl IntoResponse {
-    let _ = state.set_background_color_hex(&form.background_color);
-    let _ = state.set_foreground_color_hex(&form.foreground_color);
-
-    let background_color = format!("#{:06X}", state.background_color());
-    let foreground_color = format!("#{:06X}", state.foreground_color());
-    Html(
-        ColorsTemplate {
-            background_color,
-            foreground_color,
-        }
-        .render()
-        .unwrap(),
-    )
+    let _ = state.set_theme(&form.theme);
+    let current = state.theme_name();
+    let themes: Vec<String> = state
+        .available_themes()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    Html(ThemeTemplate { current, themes }.render().unwrap())
 }
 
 /// GET /background - Background image controls partial
@@ -372,17 +363,17 @@ async fn preview_get() -> impl IntoResponse {
     Html(PreviewTemplate { timestamp }.render().unwrap())
 }
 
-/// Form data for refresh rate.
+/// Form data for refresh interval (milliseconds).
 #[derive(Deserialize)]
-struct RefreshRateForm {
-    rate: u32,
+struct RefreshIntervalForm {
+    interval: u32,
 }
 
-/// POST /refresh-rate - Set LCD refresh rate
-async fn refresh_rate_set(
+/// POST /refresh-interval - Set LCD refresh interval in milliseconds
+async fn refresh_interval_set(
     State(state): State<Arc<AppState>>,
-    Form(form): Form<RefreshRateForm>,
+    Form(form): Form<RefreshIntervalForm>,
 ) -> impl IntoResponse {
-    state.set_refresh_rate_secs(form.rate);
+    state.set_refresh_interval_ms(form.interval);
     StatusCode::OK
 }

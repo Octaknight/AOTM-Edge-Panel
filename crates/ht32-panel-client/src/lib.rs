@@ -49,17 +49,14 @@ trait Daemon1 {
     /// Gets current LED settings as (theme, intensity, speed).
     fn get_led_settings(&self) -> zbus::Result<(u8, u8, u8)>;
 
-    /// Gets the background color as hex string.
-    fn get_background_color(&self) -> zbus::Result<String>;
+    /// Gets the current color theme name.
+    fn get_theme(&self) -> zbus::Result<String>;
 
-    /// Sets the background color from hex string.
-    fn set_background_color(&self, color: &str) -> zbus::Result<()>;
+    /// Sets the color theme by name.
+    fn set_theme(&self, name: &str) -> zbus::Result<()>;
 
-    /// Gets the foreground color as hex string.
-    fn get_foreground_color(&self) -> zbus::Result<String>;
-
-    /// Sets the foreground color from hex string.
-    fn set_foreground_color(&self, color: &str) -> zbus::Result<()>;
+    /// Lists available color themes.
+    fn list_themes(&self) -> zbus::Result<Vec<String>>;
 
     /// Gets the background image path.
     fn get_background_image(&self) -> zbus::Result<String>;
@@ -70,11 +67,11 @@ trait Daemon1 {
     /// Clears the background image.
     fn clear_background_image(&self) -> zbus::Result<()>;
 
-    /// Gets the refresh rate in seconds.
-    fn get_refresh_rate(&self) -> zbus::Result<u32>;
+    /// Gets the refresh interval in milliseconds.
+    fn get_refresh_interval(&self) -> zbus::Result<u32>;
 
-    /// Sets the refresh rate in seconds.
-    fn set_refresh_rate(&self, secs: u32) -> zbus::Result<()>;
+    /// Sets the refresh interval in milliseconds.
+    fn set_refresh_interval(&self, ms: u32) -> zbus::Result<()>;
 
     /// Gets the current network interface.
     fn get_network_interface(&self) -> zbus::Result<String>;
@@ -115,9 +112,9 @@ trait Daemon1 {
     #[zbus(property)]
     fn led_speed(&self) -> zbus::Result<u8>;
 
-    /// Current refresh rate in seconds.
+    /// Current refresh interval in milliseconds.
     #[zbus(property)]
-    fn refresh_rate(&self) -> zbus::Result<u32>;
+    fn refresh_interval(&self) -> zbus::Result<u32>;
 
     /// Current network interface name.
     #[zbus(property)]
@@ -244,36 +241,28 @@ impl DaemonClient {
             .context("Failed to get LED settings via D-Bus")
     }
 
-    /// Gets the background color as hex string.
-    pub async fn get_background_color(&self) -> Result<String> {
+    /// Gets the current color theme name.
+    pub async fn get_theme(&self) -> Result<String> {
         self.proxy
-            .get_background_color()
+            .get_theme()
             .await
-            .context("Failed to get background color via D-Bus")
+            .context("Failed to get theme via D-Bus")
     }
 
-    /// Sets the background color from hex string.
-    pub async fn set_background_color(&self, color: &str) -> Result<()> {
+    /// Sets the color theme by name.
+    pub async fn set_theme(&self, name: &str) -> Result<()> {
         self.proxy
-            .set_background_color(color)
+            .set_theme(name)
             .await
-            .context("Failed to set background color via D-Bus")
+            .context("Failed to set theme via D-Bus")
     }
 
-    /// Gets the foreground color as hex string.
-    pub async fn get_foreground_color(&self) -> Result<String> {
+    /// Lists available color themes.
+    pub async fn list_themes(&self) -> Result<Vec<String>> {
         self.proxy
-            .get_foreground_color()
+            .list_themes()
             .await
-            .context("Failed to get foreground color via D-Bus")
-    }
-
-    /// Sets the foreground color from hex string.
-    pub async fn set_foreground_color(&self, color: &str) -> Result<()> {
-        self.proxy
-            .set_foreground_color(color)
-            .await
-            .context("Failed to set foreground color via D-Bus")
+            .context("Failed to list themes via D-Bus")
     }
 
     /// Gets the background image path.
@@ -300,20 +289,20 @@ impl DaemonClient {
             .context("Failed to clear background image via D-Bus")
     }
 
-    /// Gets the refresh rate in seconds.
-    pub async fn get_refresh_rate(&self) -> Result<u32> {
+    /// Gets the refresh interval in milliseconds.
+    pub async fn get_refresh_interval(&self) -> Result<u32> {
         self.proxy
-            .get_refresh_rate()
+            .get_refresh_interval()
             .await
-            .context("Failed to get refresh rate via D-Bus")
+            .context("Failed to get refresh interval via D-Bus")
     }
 
-    /// Sets the refresh rate in seconds.
-    pub async fn set_refresh_rate(&self, secs: u32) -> Result<()> {
+    /// Sets the refresh interval in milliseconds.
+    pub async fn set_refresh_interval(&self, ms: u32) -> Result<()> {
         self.proxy
-            .set_refresh_rate(secs)
+            .set_refresh_interval(ms)
             .await
-            .context("Failed to set refresh rate via D-Bus")
+            .context("Failed to set refresh interval via D-Bus")
     }
 
     /// Gets the current network interface.

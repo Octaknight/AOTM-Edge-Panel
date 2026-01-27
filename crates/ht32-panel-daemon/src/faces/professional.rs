@@ -1,0 +1,379 @@
+//! Professional face with graphical progress bars.
+//!
+//! Layout (320x170):
+//! ```text
+//! endeavour               18:45
+//! Uptime: 5d 12h 34m
+//!
+//! CPU [████████░░░░░░░░] 45%
+//! RAM [██████████░░░░░░] 67%
+//! Disk[████░░░░░░░░░░░░] R: 12 MB/s  W: 5 MB/s
+//! Net [██████░░░░░░░░░░] ↓: 1.2 MB/s ↑: 0.8 MB/s
+//!
+//! enp2s0: 192.168.1.100
+//! ```
+
+use super::{Face, Theme};
+use crate::rendering::Canvas;
+use crate::sensors::data::SystemData;
+
+/// Dim a color by mixing it toward the background.
+fn dim_color(color: u32, background: u32, factor: f32) -> u32 {
+    let r1 = ((color >> 16) & 0xFF) as f32;
+    let g1 = ((color >> 8) & 0xFF) as f32;
+    let b1 = (color & 0xFF) as f32;
+    let r2 = ((background >> 16) & 0xFF) as f32;
+    let g2 = ((background >> 8) & 0xFF) as f32;
+    let b2 = (background & 0xFF) as f32;
+
+    let r = (r1 * factor + r2 * (1.0 - factor)) as u32;
+    let g = (g1 * factor + g2 * (1.0 - factor)) as u32;
+    let b = (b1 * factor + b2 * (1.0 - factor)) as u32;
+
+    (r << 16) | (g << 8) | b
+}
+
+/// Derive colors from theme for the professional face.
+struct FaceColors {
+    /// Primary highlight color (hostname, interface name)
+    highlight: u32,
+    /// Main text color
+    text: u32,
+    /// Dimmed text color (uptime, IPs)
+    dim: u32,
+    /// Progress bar background
+    bar_bg: u32,
+    /// CPU bar fill color
+    bar_cpu: u32,
+    /// RAM bar fill color
+    bar_ram: u32,
+    /// Disk bar fill color
+    bar_disk: u32,
+    /// Network bar fill color
+    bar_net: u32,
+}
+
+impl FaceColors {
+    fn from_theme(theme: &Theme) -> Self {
+        Self {
+            highlight: theme.primary,
+            text: 0xFFFFFF,
+            dim: dim_color(0xFFFFFF, theme.background, 0.5),
+            bar_bg: dim_color(theme.primary, theme.background, 0.15),
+            bar_cpu: theme.primary,
+            bar_ram: theme.secondary,
+            bar_disk: dim_color(theme.primary, theme.secondary, 0.5), // Blend of primary/secondary
+            bar_net: theme.secondary,
+        }
+    }
+}
+
+/// Font sizes.
+const FONT_LARGE: f32 = 16.0;
+const FONT_NORMAL: f32 = 14.0;
+const FONT_SMALL: f32 = 12.0;
+
+/// Progress bar dimensions.
+const BAR_WIDTH: u32 = 120;
+const BAR_HEIGHT: u32 = 10;
+
+/// A professional face with graphical progress bars.
+pub struct ProfessionalFace;
+
+impl ProfessionalFace {
+    /// Creates a new professional face.
+    pub fn new() -> Self {
+        Self
+    }
+
+    /// Draws a progress bar.
+    #[allow(clippy::too_many_arguments)]
+    fn draw_progress_bar(
+        canvas: &mut Canvas,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        percent: f64,
+        fill_color: u32,
+        bg_color: u32,
+    ) {
+        // Draw background
+        canvas.fill_rect(x, y, width, height, bg_color);
+
+        // Draw filled portion
+        let fill_width = ((width as f64 * (percent / 100.0)) as u32).min(width);
+        if fill_width > 0 {
+            canvas.fill_rect(x, y, fill_width, height, fill_color);
+        }
+    }
+}
+
+impl Default for ProfessionalFace {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Face for ProfessionalFace {
+    fn name(&self) -> &str {
+        "professional"
+    }
+
+    fn render(&self, canvas: &mut Canvas, data: &SystemData, theme: &Theme) {
+        let colors = FaceColors::from_theme(theme);
+        let (width, _height) = canvas.dimensions();
+        let portrait = width < 200;
+        let margin = 8;
+        let mut y = margin;
+
+        if portrait {
+            // Portrait layout - narrower bars, stacked text
+            let bar_width = (width as i32 - margin * 2 - 60) as u32;
+            let bar_x = margin + 32;
+
+            canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
+            y += canvas.line_height(FONT_LARGE) + 2;
+
+            canvas.draw_text(margin, y, &data.time, FONT_LARGE, colors.text);
+            y += canvas.line_height(FONT_LARGE) + 2;
+
+            let uptime_text = format!("Up: {}", data.uptime);
+            canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.dim);
+            y += canvas.line_height(FONT_SMALL) + 6;
+
+            // CPU bar
+            canvas.draw_text(margin, y, "CPU", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                bar_width,
+                BAR_HEIGHT,
+                data.cpu_percent,
+                colors.bar_cpu,
+                colors.bar_bg,
+            );
+            let cpu_pct = format!("{:2.0}%", data.cpu_percent);
+            canvas.draw_text(
+                bar_x + bar_width as i32 + 4,
+                y,
+                &cpu_pct,
+                FONT_SMALL,
+                colors.text,
+            );
+            y += canvas.line_height(FONT_SMALL) + 3;
+
+            // RAM bar
+            canvas.draw_text(margin, y, "RAM", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                bar_width,
+                BAR_HEIGHT,
+                data.ram_percent,
+                colors.bar_ram,
+                colors.bar_bg,
+            );
+            let ram_pct = format!("{:2.0}%", data.ram_percent);
+            canvas.draw_text(
+                bar_x + bar_width as i32 + 4,
+                y,
+                &ram_pct,
+                FONT_SMALL,
+                colors.text,
+            );
+            y += canvas.line_height(FONT_SMALL) + 3;
+
+            // Disk I/O bar
+            let disk_total = data.disk_read_rate + data.disk_write_rate;
+            let disk_percent = (disk_total / 100_000_000.0 * 100.0).min(100.0); // Scale: 100MB/s = 100%
+            canvas.draw_text(margin, y, "DSK", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                bar_width,
+                BAR_HEIGHT,
+                disk_percent,
+                colors.bar_disk,
+                colors.bar_bg,
+            );
+            y += canvas.line_height(FONT_SMALL) + 2;
+            let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
+            let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
+            canvas.draw_text(
+                margin + 16,
+                y,
+                &format!("R:{} W:{}", disk_r, disk_w),
+                FONT_SMALL,
+                colors.dim,
+            );
+            y += canvas.line_height(FONT_SMALL) + 3;
+
+            // Network I/O bar
+            let net_total = data.net_rx_rate + data.net_tx_rate;
+            let net_percent = (net_total / 100_000_000.0 * 100.0).min(100.0); // Scale: 100MB/s = 100%
+            canvas.draw_text(margin, y, "NET", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                bar_width,
+                BAR_HEIGHT,
+                net_percent,
+                colors.bar_net,
+                colors.bar_bg,
+            );
+            y += canvas.line_height(FONT_SMALL) + 2;
+            let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
+            let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
+            canvas.draw_text(
+                margin + 16,
+                y,
+                &format!("\u{2193}:{} \u{2191}:{}", net_rx, net_tx),
+                FONT_SMALL,
+                colors.dim,
+            );
+            y += canvas.line_height(FONT_SMALL) + 4;
+
+            // Network interface and IPs
+            canvas.draw_text(margin, y, &data.net_interface, FONT_SMALL, colors.highlight);
+            y += canvas.line_height(FONT_SMALL) + 2;
+
+            if let Some(ref ipv4) = data.ipv4_address {
+                canvas.draw_text(margin, y, ipv4, FONT_SMALL, colors.dim);
+                y += canvas.line_height(FONT_SMALL) + 2;
+            }
+            if let Some(ref ipv6) = data.ipv6_address {
+                canvas.draw_text(margin, y, ipv6, FONT_SMALL, colors.dim);
+            }
+        } else {
+            // Landscape layout
+            canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
+            let time_width = canvas.text_width(&data.time, FONT_LARGE);
+            canvas.draw_text(
+                width as i32 - margin - time_width,
+                y,
+                &data.time,
+                FONT_LARGE,
+                colors.text,
+            );
+            y += canvas.line_height(FONT_LARGE) + 2;
+
+            let uptime_text = format!("Uptime: {}", data.uptime);
+            canvas.draw_text(margin, y, &uptime_text, FONT_NORMAL, colors.dim);
+            y += canvas.line_height(FONT_NORMAL) + 6;
+
+            let bar_x = margin + 35;
+
+            // CPU bar
+            canvas.draw_text(margin, y, "CPU", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                BAR_WIDTH,
+                BAR_HEIGHT,
+                data.cpu_percent,
+                colors.bar_cpu,
+                colors.bar_bg,
+            );
+            let cpu_percent = format!("{:3.0}%", data.cpu_percent);
+            canvas.draw_text(
+                bar_x + BAR_WIDTH as i32 + 6,
+                y,
+                &cpu_percent,
+                FONT_SMALL,
+                colors.text,
+            );
+            y += canvas.line_height(FONT_SMALL) + 3;
+
+            // RAM bar
+            canvas.draw_text(margin, y, "RAM", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                BAR_WIDTH,
+                BAR_HEIGHT,
+                data.ram_percent,
+                colors.bar_ram,
+                colors.bar_bg,
+            );
+            let ram_percent = format!("{:3.0}%", data.ram_percent);
+            canvas.draw_text(
+                bar_x + BAR_WIDTH as i32 + 6,
+                y,
+                &ram_percent,
+                FONT_SMALL,
+                colors.text,
+            );
+            y += canvas.line_height(FONT_SMALL) + 3;
+
+            // Disk I/O bar
+            let disk_total = data.disk_read_rate + data.disk_write_rate;
+            let disk_percent = (disk_total / 100_000_000.0 * 100.0).min(100.0);
+            let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
+            let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
+            canvas.draw_text(margin, y, "DSK", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                BAR_WIDTH,
+                BAR_HEIGHT,
+                disk_percent,
+                colors.bar_disk,
+                colors.bar_bg,
+            );
+            canvas.draw_text(
+                bar_x + BAR_WIDTH as i32 + 6,
+                y,
+                &format!("R:{} W:{}", disk_r, disk_w),
+                FONT_SMALL,
+                colors.dim,
+            );
+            y += canvas.line_height(FONT_SMALL) + 3;
+
+            // Network I/O bar
+            let net_total = data.net_rx_rate + data.net_tx_rate;
+            let net_percent = (net_total / 100_000_000.0 * 100.0).min(100.0);
+            let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
+            let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
+            canvas.draw_text(margin, y, "NET", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                BAR_WIDTH,
+                BAR_HEIGHT,
+                net_percent,
+                colors.bar_net,
+                colors.bar_bg,
+            );
+            canvas.draw_text(
+                bar_x + BAR_WIDTH as i32 + 6,
+                y,
+                &format!("\u{2193}:{} \u{2191}:{}", net_rx, net_tx),
+                FONT_SMALL,
+                colors.dim,
+            );
+            y += canvas.line_height(FONT_SMALL) + 4;
+
+            // Network interface and IPs on one line
+            let mut net_info = data.net_interface.clone();
+            if let Some(ref ipv4) = data.ipv4_address {
+                net_info.push_str(": ");
+                net_info.push_str(ipv4);
+            }
+            canvas.draw_text(margin, y, &net_info, FONT_SMALL, colors.highlight);
+            y += canvas.line_height(FONT_SMALL) + 2;
+
+            if let Some(ref ipv6) = data.ipv6_address {
+                canvas.draw_text(margin, y, ipv6, FONT_SMALL, colors.dim);
+            }
+        }
+    }
+}

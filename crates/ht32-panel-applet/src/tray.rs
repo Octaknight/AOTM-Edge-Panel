@@ -23,15 +23,16 @@ const ORIENTATIONS: &[(&str, &str)] = &[
 ];
 
 /// Face options: (display name, face string)
-const FACES: &[(&str, &str)] = &[("Minimal", "minimal"), ("Detailed", "detailed")];
+const FACES: &[(&str, &str)] = &[("ASCII", "ascii"), ("Professional", "professional")];
 
-/// Refresh rate options in seconds: (display name, seconds)
-const REFRESH_RATES: &[(&str, u32)] = &[
-    ("2 seconds", 2),
-    ("5 seconds", 5),
-    ("10 seconds", 10),
-    ("30 seconds", 30),
-    ("60 seconds", 60),
+/// Refresh interval options in milliseconds: (display name, milliseconds)
+const REFRESH_INTERVALS: &[(&str, u32)] = &[
+    ("200ms", 200),
+    ("500ms", 500),
+    ("1 second", 1000),
+    ("2 seconds", 2000),
+    ("5 seconds", 5000),
+    ("10 seconds", 10000),
 ];
 
 /// Commands that can be sent from tray callbacks to the async worker.
@@ -40,7 +41,7 @@ pub enum TrayCommand {
     SetLedTheme(u8),
     SetOrientation(String),
     SetFace(String),
-    SetRefreshRate(u32),
+    SetRefreshInterval(u32),
     SetNetworkInterface(String),
     QuitDaemon,
 }
@@ -54,7 +55,7 @@ pub struct TrayState {
     pub led_speed: u8,
     pub orientation: String,
     pub face: String,
-    pub refresh_rate: u32,
+    pub refresh_interval: u32,
     pub network_interface: String,
     pub network_interfaces: Vec<String>,
 }
@@ -68,8 +69,8 @@ impl Default for TrayState {
             led_intensity: 3,
             led_speed: 3,
             orientation: "landscape".to_string(),
-            face: "minimal".to_string(),
-            refresh_rate: 5,
+            face: "professional".to_string(),
+            refresh_interval: 500, // 500ms default
             network_interface: String::new(),
             network_interfaces: Vec::new(),
         }
@@ -130,14 +131,14 @@ impl HT32PanelTray {
         }
     }
 
-    fn set_refresh_rate(&mut self, index: usize) {
-        if let Some((_, secs)) = REFRESH_RATES.get(index) {
-            if let Err(e) = self.command_tx.send(TrayCommand::SetRefreshRate(*secs)) {
-                debug!("Failed to send refresh rate command: {}", e);
+    fn set_refresh_interval(&mut self, index: usize) {
+        if let Some((_, ms)) = REFRESH_INTERVALS.get(index) {
+            if let Err(e) = self.command_tx.send(TrayCommand::SetRefreshInterval(*ms)) {
+                debug!("Failed to send refresh interval command: {}", e);
             }
             // Update local state immediately for UI feedback
             if let Ok(mut s) = self.state.lock() {
-                s.refresh_rate = *secs;
+                s.refresh_interval = *ms;
             }
         }
     }
@@ -211,7 +212,7 @@ impl Tray for HT32PanelTray {
         let current_theme = state.led_theme;
         let current_orientation = state.orientation.clone();
         let current_face = state.face.clone();
-        let current_refresh_rate = state.refresh_rate;
+        let current_refresh_interval = state.refresh_interval;
         let current_network = state.network_interface.clone();
         let network_interfaces = state.network_interfaces.clone();
         let web_enabled = state.web_enabled;
@@ -236,9 +237,9 @@ impl Tray for HT32PanelTray {
             .unwrap_or(0);
 
         // Find current refresh rate index
-        let refresh_selected = REFRESH_RATES
+        let refresh_selected = REFRESH_INTERVALS
             .iter()
-            .position(|(_, r)| *r == current_refresh_rate)
+            .position(|(_, r)| *r == current_refresh_interval)
             .unwrap_or(1); // Default to 5 seconds
 
         // Find current network interface index (0 = auto)
@@ -280,7 +281,7 @@ impl Tray for HT32PanelTray {
             .collect();
 
         // Create refresh rate radio items
-        let refresh_options: Vec<RadioItem> = REFRESH_RATES
+        let refresh_options: Vec<RadioItem> = REFRESH_INTERVALS
             .iter()
             .map(|(name, _)| RadioItem {
                 label: name.to_string(),
@@ -341,11 +342,11 @@ impl Tray for HT32PanelTray {
             }
             .into(),
             SubMenu {
-                label: "Refresh Rate".to_string(),
+                label: "Refresh Interval".to_string(),
                 submenu: vec![RadioGroup {
                     selected: refresh_selected,
                     select: Box::new(|tray: &mut Self, index| {
-                        tray.set_refresh_rate(index);
+                        tray.set_refresh_interval(index);
                     }),
                     options: refresh_options,
                 }

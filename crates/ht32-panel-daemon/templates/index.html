@@ -11,8 +11,8 @@
     <h2>Display Preview</h2>
     <img id="lcd-preview" src="/lcd.png" alt="LCD Preview">
     <div class="refresh-controls">
-        <label>Refresh: <span id="refresh-value">2</span>s</label>
-        <input type="range" id="refresh-slider" min="2" max="60" step="1" value="2">
+        <label>Refresh Interval: <span id="refresh-value">500</span>ms</label>
+        <input type="range" id="refresh-slider" min="200" max="10000" step="100" value="500">
     </div>
 </div>
 <script>
@@ -28,10 +28,10 @@
         next.src = '/lcd.png?t=' + Date.now();
     }
 
-    function start(secs) {
+    function start(ms) {
         if (intervalId) clearInterval(intervalId);
-        intervalId = setInterval(refresh, secs * 1000);
-        fetch('/refresh-rate', { method: 'POST', body: 'rate=' + secs, headers: {'Content-Type': 'application/x-www-form-urlencoded'} });
+        intervalId = setInterval(refresh, ms);
+        fetch('/refresh-interval', { method: 'POST', body: 'interval=' + ms, headers: {'Content-Type': 'application/x-www-form-urlencoded'} });
     }
 
     slider.oninput = function() {
@@ -39,7 +39,7 @@
         start(parseInt(this.value));
     };
 
-    start(2);
+    start(500);
 })();
 </script>
 
@@ -58,8 +58,8 @@
 </div>
 
 <div class="card">
-    <h2>Colors</h2>
-    <div id="color-controls" hx-get="/colors" hx-trigger="load" hx-swap="innerHTML">
+    <h2>Theme</h2>
+    <div id="theme-controls" hx-get="/theme" hx-trigger="load" hx-swap="innerHTML">
         Loading...
     </div>
 </div>

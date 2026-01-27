@@ -133,8 +133,8 @@ async fn render_loop(state: Arc<AppState>) {
         if let Err(e) = state.render_frame().await {
             warn!("Render error: {}", e);
         }
-        let secs = state.refresh_rate_secs();
-        tokio::time::sleep(std::time::Duration::from_secs(secs as u64)).await;
+        let ms = state.refresh_interval_ms();
+        tokio::time::sleep(std::time::Duration::from_millis(ms as u64)).await;
     }
 }
 

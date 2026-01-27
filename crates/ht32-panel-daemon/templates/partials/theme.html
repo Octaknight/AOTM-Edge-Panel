@@ -1,0 +1,9 @@
+<form hx-post="/theme" hx-target="#theme-controls" hx-swap="innerHTML">
+    <div class="button-group">
+        {% for theme in themes %}
+        <button type="submit" name="theme" value="{{ theme }}" class="{% if *theme == current %}active{% endif %}">
+            {{ theme }}
+        </button>
+        {% endfor %}
+    </div>
+</form>
