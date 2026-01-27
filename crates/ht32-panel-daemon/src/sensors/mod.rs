@@ -10,12 +10,14 @@ mod disk;
 mod memory;
 mod network;
 mod system;
+mod temperature;
 
 pub use cpu::CpuSensor;
 pub use disk::DiskSensor;
 pub use memory::MemorySensor;
 pub use network::NetworkSensor;
 pub use system::SystemInfo;
+pub use temperature::TemperatureSensor;
 
 /// Trait for all sensors.
 pub trait Sensor: Send + Sync {

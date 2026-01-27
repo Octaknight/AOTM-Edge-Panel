@@ -123,7 +123,16 @@ impl Face for AsciiFace {
 
             let uptime_text = format!("Up: {}", data.uptime);
             canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.dim);
-            y += canvas.line_height(FONT_SMALL) + 6;
+            y += canvas.line_height(FONT_SMALL) + 2;
+
+            // CPU temperature (portrait: below uptime)
+            if let Some(temp) = data.cpu_temp {
+                let temp_text = format!("Temp: {:.0}°C", temp);
+                canvas.draw_text(margin, y, &temp_text, FONT_SMALL, colors.dim);
+                y += canvas.line_height(FONT_SMALL) + 4;
+            } else {
+                y += 4; // Keep spacing consistent
+            }
 
             // CPU with ASCII bar
             let cpu_bar = ascii_bar(data.cpu_percent, bar_chars);
@@ -221,9 +230,13 @@ impl Face for AsciiFace {
             canvas.draw_text(margin, y, &uptime_text, FONT_NORMAL, colors.dim);
             y += canvas.line_height(FONT_NORMAL) + 8;
 
-            // CPU with ASCII bar
+            // CPU with ASCII bar and temperature
             let cpu_bar = ascii_bar(data.cpu_percent, bar_chars);
-            let cpu_text = format!("CPU {} {:3.0}%", cpu_bar, data.cpu_percent);
+            let cpu_text = if let Some(temp) = data.cpu_temp {
+                format!("CPU {} {:3.0}%  {:.0}°C", cpu_bar, data.cpu_percent, temp)
+            } else {
+                format!("CPU {} {:3.0}%", cpu_bar, data.cpu_percent)
+            };
             canvas.draw_text(margin, y, &cpu_text, FONT_NORMAL, colors.text);
             y += canvas.line_height(FONT_NORMAL) + 2;
 

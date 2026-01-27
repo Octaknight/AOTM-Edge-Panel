@@ -16,6 +16,8 @@ pub struct SystemData {
     pub uptime: String,
     /// CPU usage percentage (0-100)
     pub cpu_percent: f64,
+    /// CPU temperature in Celsius (None if unavailable)
+    pub cpu_temp: Option<f64>,
     /// RAM usage percentage (0-100)
     pub ram_percent: f64,
     /// Disk read rate in bytes/second

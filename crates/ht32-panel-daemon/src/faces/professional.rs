@@ -146,7 +146,16 @@ impl Face for ProfessionalFace {
 
             let uptime_text = format!("Up: {}", data.uptime);
             canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.dim);
-            y += canvas.line_height(FONT_SMALL) + 6;
+            y += canvas.line_height(FONT_SMALL) + 2;
+
+            // CPU temperature (portrait: below uptime)
+            if let Some(temp) = data.cpu_temp {
+                let temp_text = format!("Temp: {:.0}°C", temp);
+                canvas.draw_text(margin, y, &temp_text, FONT_SMALL, colors.dim);
+                y += canvas.line_height(FONT_SMALL) + 4;
+            } else {
+                y += 4; // Keep spacing consistent
+            }
 
             // CPU bar
             canvas.draw_text(margin, y, "CPU", FONT_SMALL, colors.text);
@@ -278,7 +287,7 @@ impl Face for ProfessionalFace {
 
             let bar_x = margin + 35;
 
-            // CPU bar
+            // CPU bar with temperature
             canvas.draw_text(margin, y, "CPU", FONT_SMALL, colors.text);
             Self::draw_progress_bar(
                 canvas,
@@ -298,6 +307,17 @@ impl Face for ProfessionalFace {
                 FONT_SMALL,
                 colors.text,
             );
+            // Temperature on same line (landscape)
+            if let Some(temp) = data.cpu_temp {
+                let temp_text = format!("{:.0}°C", temp);
+                canvas.draw_text(
+                    bar_x + BAR_WIDTH as i32 + 50,
+                    y,
+                    &temp_text,
+                    FONT_SMALL,
+                    colors.dim,
+                );
+            }
             y += canvas.line_height(FONT_SMALL) + 3;
 
             // RAM bar

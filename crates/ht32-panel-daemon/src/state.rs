@@ -18,6 +18,7 @@ use crate::faces::{self, Face, Theme};
 use crate::rendering::Canvas;
 use crate::sensors::{
     data::SystemData, CpuSensor, DiskSensor, MemorySensor, NetworkSensor, Sensor, SystemInfo,
+    TemperatureSensor,
 };
 
 /// Display settings persisted to state directory.
@@ -94,6 +95,7 @@ impl Default for DisplaySettings {
 /// Sensors collection for sampling system data.
 struct Sensors {
     cpu: CpuSensor,
+    temperature: TemperatureSensor,
     memory: MemorySensor,
     network: NetworkSensor,
     disk: DiskSensor,
@@ -104,6 +106,7 @@ impl Sensors {
     fn new(network_interface: &str) -> Self {
         Self {
             cpu: CpuSensor::new(),
+            temperature: TemperatureSensor::new(),
             memory: MemorySensor::new(),
             network: NetworkSensor::new(network_interface),
             disk: DiskSensor::auto(),
@@ -114,6 +117,7 @@ impl Sensors {
     fn new_auto() -> Self {
         Self {
             cpu: CpuSensor::new(),
+            temperature: TemperatureSensor::new(),
             memory: MemorySensor::new(),
             network: NetworkSensor::auto(),
             disk: DiskSensor::auto(),
@@ -124,6 +128,8 @@ impl Sensors {
     fn sample(&mut self) -> SystemData {
         // Sample all sensors
         let cpu_percent = self.cpu.sample();
+        let _ = self.temperature.sample(); // Updates internal state
+        let cpu_temp = self.temperature.temperature();
         let ram_percent = self.memory.sample();
         let _ = self.network.sample(); // Updates internal state
         let _ = self.disk.sample(); // Updates internal state
@@ -133,6 +139,7 @@ impl Sensors {
             time: self.system.time(),
             uptime: self.system.uptime(),
             cpu_percent,
+            cpu_temp,
             ram_percent,
             disk_read_rate: self.disk.read_rate(),
             disk_write_rate: self.disk.write_rate(),
