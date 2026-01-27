@@ -101,6 +101,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -115,7 +118,18 @@ jobs:
         run: |
           echo "## What's Changed" > CHANGELOG.md
           echo "" >> CHANGELOG.md
-          git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 HEAD^)..HEAD >> CHANGELOG.md 2>/dev/null || echo "- Initial release" >> CHANGELOG.md
+          # Get the previous tag (excluding the current one)
+          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${{ github.ref_name }}$" | head -n1)
+          if [ -n "$PREV_TAG" ]; then
+            echo "Generating changelog from $PREV_TAG to ${{ github.ref_name }}"
+            git log --pretty=format:"- %s" "$PREV_TAG".."${{ github.ref_name }}" >> CHANGELOG.md
+          else
+            echo "No previous tag found, listing recent commits"
+            git log --pretty=format:"- %s" -20 >> CHANGELOG.md
+          fi
+          echo ""
+          echo "Generated CHANGELOG.md:"
+          cat CHANGELOG.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
