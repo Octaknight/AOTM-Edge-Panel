@@ -115,23 +115,43 @@ impl Face for AsciiFace {
 
         if portrait {
             // Portrait layout - stack vertically
-            // Hostname with IP address below
+            // Hostname on left, time on top right
             canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
+            let time_width = canvas.text_width(&data.time, FONT_LARGE);
+            canvas.draw_text(
+                width as i32 - margin - time_width,
+                y,
+                &data.time,
+                FONT_LARGE,
+                colors.text,
+            );
             y += canvas.line_height(FONT_LARGE) + 2;
 
-            if let Some(ref ip) = data.display_ip {
-                canvas.draw_text(margin, y, ip, FONT_SMALL, colors.dim);
-                y += canvas.line_height(FONT_SMALL) + 2;
-            }
-
-            canvas.draw_text(margin, y, &data.time, FONT_LARGE, colors.text);
-            y += canvas.line_height(FONT_LARGE) + 2;
-
+            // Uptime
             let uptime_text = format!("Up: {}", data.uptime);
             canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.dim);
             y += canvas.line_height(FONT_SMALL) + 2;
 
-            // CPU temperature (portrait: below uptime)
+            // IP address under uptime (hyphenate IPv6 if too long)
+            if let Some(ref ip) = data.display_ip {
+                let max_width = width as i32 - margin * 2;
+                let ip_width = canvas.text_width(ip, FONT_SMALL);
+                if ip_width > max_width && ip.contains(':') {
+                    // IPv6 address - split at a colon near the middle
+                    let mid = ip.len() / 2;
+                    let split_pos = ip[..mid].rfind(':').map(|p| p + 1).unwrap_or(mid);
+                    let (first, second) = ip.split_at(split_pos);
+                    canvas.draw_text(margin, y, first, FONT_SMALL, colors.dim);
+                    y += canvas.line_height(FONT_SMALL);
+                    canvas.draw_text(margin, y, second, FONT_SMALL, colors.dim);
+                    y += canvas.line_height(FONT_SMALL) + 2;
+                } else {
+                    canvas.draw_text(margin, y, ip, FONT_SMALL, colors.dim);
+                    y += canvas.line_height(FONT_SMALL) + 2;
+                }
+            }
+
+            // CPU temperature (portrait: below IP)
             if let Some(temp) = data.cpu_temp {
                 let temp_text = format!("Temp: {:.0}°C", temp);
                 canvas.draw_text(margin, y, &temp_text, FONT_SMALL, colors.dim);
@@ -152,16 +172,15 @@ impl Face for AsciiFace {
             canvas.draw_text(margin, y, &ram_text, FONT_SMALL, colors.text);
             y += canvas.line_height(FONT_SMALL) + 4;
 
-            // Disk I/O graph
+            // Disk I/O graph - counters on left side
             let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
             let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
-            canvas.draw_text(margin, y, "DSK", FONT_SMALL, colors.text);
             canvas.draw_text(
-                margin + 28,
+                margin,
                 y,
-                &format!("R:{} W:{}", disk_r, disk_w),
+                &format!("DSK R:{} W:{}", disk_r, disk_w),
                 FONT_SMALL,
-                colors.dim,
+                colors.text,
             );
             y += canvas.line_height(FONT_SMALL) + 1;
             canvas.draw_graph(
@@ -176,16 +195,15 @@ impl Face for AsciiFace {
             );
             y += GRAPH_HEIGHT as i32 + 4;
 
-            // Network I/O graph
+            // Network I/O graph - counters on left side
             let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
             let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
-            canvas.draw_text(margin, y, "NET", FONT_SMALL, colors.text);
             canvas.draw_text(
-                margin + 28,
+                margin,
                 y,
-                &format!("D:{} U:{}", net_rx, net_tx),
+                &format!("NET D:{} U:{}", net_rx, net_tx),
                 FONT_SMALL,
-                colors.dim,
+                colors.text,
             );
             y += canvas.line_height(FONT_SMALL) + 1;
             canvas.draw_graph(
@@ -199,15 +217,8 @@ impl Face for AsciiFace {
                 colors.bar_bg,
             );
         } else {
-            // Landscape layout - hostname with IP on same line
+            // Landscape layout - hostname on left, time on top right
             canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
-
-            // IP address next to hostname (dim color)
-            if let Some(ref ip) = data.display_ip {
-                let hostname_width = canvas.text_width(&data.hostname, FONT_LARGE);
-                canvas.draw_text(margin + hostname_width + 8, y, ip, FONT_SMALL, colors.dim);
-            }
-
             let time_width = canvas.text_width(&data.time, FONT_LARGE);
             canvas.draw_text(
                 width as i32 - margin - time_width,
@@ -218,9 +229,18 @@ impl Face for AsciiFace {
             );
             y += canvas.line_height(FONT_LARGE) + 2;
 
+            // Uptime
             let uptime_text = format!("Up: {}", data.uptime);
             canvas.draw_text(margin, y, &uptime_text, FONT_NORMAL, colors.dim);
-            y += canvas.line_height(FONT_NORMAL) + 8;
+            y += canvas.line_height(FONT_NORMAL) + 2;
+
+            // IP address on its own line under uptime
+            if let Some(ref ip) = data.display_ip {
+                canvas.draw_text(margin, y, ip, FONT_SMALL, colors.dim);
+                y += canvas.line_height(FONT_SMALL) + 6;
+            } else {
+                y += 6;
+            }
 
             // CPU with ASCII bar and temperature
             let cpu_bar = ascii_bar(data.cpu_percent, bar_chars);
