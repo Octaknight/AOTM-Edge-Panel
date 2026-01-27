@@ -135,6 +135,36 @@
         .refresh-controls input[type="range"] { flex: 1; max-width: 200px; }
         .flash { animation: flash 0.3s; }
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        /* Section styling */
+        .section {
+            margin-bottom: 1.5rem;
+        }
+        .section-header {
+            font-size: 1.1rem;
+            color: #00d4ff;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #333;
+        }
+        /* Side-by-side cards on wider screens */
+        .card-row {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: 1fr;
+        }
+        @media (min-width: 600px) {
+            .card-row {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .card-row .card {
+            margin-bottom: 0;
+        }
+        .hint {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>

@@ -43,38 +43,47 @@
 })();
 </script>
 
-<div class="card">
-    <h2>Orientation</h2>
-    <div id="orientation" hx-get="/orientation" hx-trigger="load" hx-swap="innerHTML">
-        Loading...
+<div class="section">
+    <h3 class="section-header">LCD Display</h3>
+
+    <div class="card">
+        <h2>Orientation</h2>
+        <div id="orientation" hx-get="/orientation" hx-trigger="load" hx-swap="innerHTML">
+            Loading...
+        </div>
+    </div>
+
+    <div class="card-row">
+        <div class="card">
+            <h2>Theme</h2>
+            <div id="theme-controls" hx-get="/theme" hx-trigger="load" hx-swap="innerHTML">
+                Loading...
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Display Face</h2>
+            <div id="face-controls" hx-get="/face" hx-trigger="load" hx-swap="innerHTML">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Network Interface</h2>
+        <div id="network-interface" hx-get="/network-interface" hx-trigger="load" hx-swap="innerHTML">
+            Loading...
+        </div>
     </div>
 </div>
 
-<div class="card">
-    <h2>Network Interface</h2>
-    <div id="network-interface" hx-get="/network-interface" hx-trigger="load" hx-swap="innerHTML">
-        Loading...
-    </div>
-</div>
+<div class="section">
+    <h3 class="section-header">LED Strip</h3>
 
-<div class="card">
-    <h2>Theme</h2>
-    <div id="theme-controls" hx-get="/theme" hx-trigger="load" hx-swap="innerHTML">
-        Loading...
-    </div>
-</div>
-
-<div class="card">
-    <h2>Display Face</h2>
-    <div id="face-controls" hx-get="/face" hx-trigger="load" hx-swap="innerHTML">
-        Loading...
-    </div>
-</div>
-
-<div class="card">
-    <h2>LED Strip</h2>
-    <div id="led-controls" hx-get="/led" hx-trigger="load" hx-swap="innerHTML">
-        Loading...
+    <div class="card">
+        <div id="led-controls" hx-get="/led" hx-trigger="load" hx-swap="innerHTML">
+            Loading...
+        </div>
     </div>
 </div>
 {% endblock %}
