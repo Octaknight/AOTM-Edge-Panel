@@ -1,4 +1,4 @@
-<form hx-post="/network-interface" hx-target="#network-interface" hx-swap="innerHTML">
+<form hx-post="/network-interface" hx-target="#network-interface" hx-swap="innerHTML" hx-disabled-elt="find button">
     <div class="controls">
         <button type="submit" name="interface" value="auto"
                 class="btn{% if is_auto %} active{% endif %}">Auto</button>
@@ -6,6 +6,7 @@
         <button type="submit" name="interface" value="{{ iface }}"
                 class="btn{% if !is_auto && current == *iface %} active{% endif %}">{{ iface }}</button>
         {% endfor %}
+        <span class="htmx-indicator spinner"></span>
     </div>
     <p class="hint">Current: {{ current }}</p>
 </form>

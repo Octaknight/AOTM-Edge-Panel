@@ -1,8 +1,9 @@
-<form hx-post="/face" hx-target="#face-controls" hx-swap="innerHTML">
+<form hx-post="/face" hx-target="#face-controls" hx-swap="innerHTML" hx-disabled-elt="find button">
     <div class="controls">
         <button type="submit" name="face" value="ascii"
                 class="btn{% if current == "ascii" %} active{% endif %}">ASCII</button>
         <button type="submit" name="face" value="professional"
                 class="btn{% if current == "professional" %} active{% endif %}">Professional</button>
+        <span class="htmx-indicator spinner"></span>
     </div>
 </form>
