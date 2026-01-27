@@ -16,10 +16,12 @@ use crate::sensors::data::SystemData;
 /// Color theme for face rendering.
 #[derive(Debug, Clone, Copy)]
 pub struct Theme {
-    /// Primary color (used for main text, highlights) - RGB888
+    /// Primary color (used for highlights, interface names) - RGB888
     pub primary: u32,
-    /// Secondary color (used for labels, accents) - RGB888
+    /// Secondary color (used for accents) - RGB888
     pub secondary: u32,
+    /// Main text color - RGB888
+    pub text: u32,
     /// Background color - RGB888
     pub background: u32,
 }
@@ -38,36 +40,42 @@ impl Theme {
                 // Matrix-like green on black
                 primary: 0x00FF00,   // Bright green
                 secondary: 0x00AA00, // Darker green
+                text: 0x00FF00,      // Green text
                 background: 0x000000,
             },
             "solarized-light" | "solarized_light" => Self {
                 // Solarized Light
                 primary: 0x268BD2,    // Blue
                 secondary: 0x859900,  // Green
+                text: 0x657B83,       // Base00 (dark gray for light bg)
                 background: 0xFDF6E3, // Base3
             },
             "solarized-dark" | "solarized_dark" => Self {
                 // Solarized Dark
                 primary: 0x268BD2,    // Blue
                 secondary: 0x859900,  // Green
+                text: 0x839496,       // Base0 (light gray for dark bg)
                 background: 0x002B36, // Base03
             },
             "nord" => Self {
                 // Nord
                 primary: 0x88C0D0,    // Nord8 (frost cyan)
                 secondary: 0x81A1C1,  // Nord9 (frost blue)
+                text: 0xECEFF4,       // Nord6 (snow storm white)
                 background: 0x2E3440, // Nord0
             },
             "tokyonight" | "tokyo-night" | "tokyo_night" => Self {
                 // Tokyo Night
                 primary: 0x7AA2F7,   // Blue
                 secondary: 0xBB9AF7, // Magenta
+                text: 0xC0CAF5,      // Foreground
                 background: 0x1A1B26,
             },
             _ => Self {
                 // Default - cyan/coral on dark blue-gray
                 primary: 0x00DDDD,
                 secondary: 0xFF6B6B,
+                text: 0xFFFFFF,
                 background: 0x1A1A2E,
             },
         }

@@ -47,8 +47,8 @@ impl FaceColors {
     fn from_theme(theme: &Theme) -> Self {
         Self {
             highlight: theme.primary,
-            text: 0xFFFFFF,
-            dim: dim_color(0xFFFFFF, theme.background, 0.5),
+            text: theme.text,
+            dim: dim_color(theme.text, theme.background, 0.5),
         }
     }
 }
