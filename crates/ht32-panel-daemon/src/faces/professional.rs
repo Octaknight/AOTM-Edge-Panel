@@ -395,10 +395,10 @@ impl Face for ProfessionalFace {
             y += canvas.line_height(FONT_SMALL) + 2;
 
             let indent = margin + 12;
-            let ip_text = match (&data.ipv4_address, &data.ipv6_address) {
-                (Some(v4), Some(v6)) => format!("{}, {}", v4, v6),
-                (Some(v4), None) => v4.clone(),
-                (None, Some(v6)) => v6.clone(),
+            let ip_text = match (&data.ipv6_address, &data.ipv4_address) {
+                (Some(v6), Some(v4)) => format!("{}, {}", v6, v4),
+                (Some(v6), None) => v6.clone(),
+                (None, Some(v4)) => v4.clone(),
                 (None, None) => String::new(),
             };
             if !ip_text.is_empty() {
