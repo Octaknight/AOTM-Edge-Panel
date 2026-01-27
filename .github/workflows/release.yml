@@ -35,7 +35,6 @@ jobs:
           cp result/bin/ht32panelctl dist/
           cp result/bin/ht32-panel-applet dist/
           cp -r result/share/ht32-panel/config dist/
-          cp -r result/share/ht32-panel/themes dist/
           tar -czvf ht32-panel-${{ github.ref_name }}-x86_64-linux.tar.gz -C dist .
 
       - name: Upload artifact
@@ -76,7 +75,7 @@ jobs:
           cp result/bin/ht32paneld AppDir/usr/bin/
           cp result/bin/ht32panelctl AppDir/usr/bin/
           cp result/bin/ht32-panel-applet AppDir/usr/bin/
-          cp -r result/share/ht32-panel/config result/share/ht32-panel/themes AppDir/usr/share/ht32-panel/
+          cp -r result/share/ht32-panel/config AppDir/usr/share/ht32-panel/
 
           cp packaging/org.ht32panel.Daemon.desktop AppDir/
           cp packaging/org.ht32panel.Daemon.desktop AppDir/usr/share/applications/
