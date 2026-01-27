@@ -57,13 +57,6 @@ struct ThemeTemplate {
     themes: Vec<String>,
 }
 
-/// Background image partial template.
-#[derive(Template)]
-#[template(path = "partials/background.html")]
-struct BackgroundTemplate {
-    background_image: String,
-}
-
 /// Network interface partial template.
 #[derive(Template)]
 #[template(path = "partials/network.html")]
@@ -93,8 +86,6 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/face", get(face_get).post(face_set))
         .route("/led", get(led_get).post(led_set))
         .route("/theme", get(theme_get).post(theme_set))
-        .route("/background", get(background_get).post(background_set))
-        .route("/background/clear", post(background_clear))
         .route(
             "/network-interface",
             get(network_interface_get).post(network_interface_set),
@@ -263,47 +254,6 @@ async fn theme_set(
         .map(|s| s.to_string())
         .collect();
     Html(ThemeTemplate { current, themes }.render().unwrap())
-}
-
-/// GET /background - Background image controls partial
-async fn background_get(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let background_image = state
-        .background_image()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default();
-    Html(BackgroundTemplate { background_image }.render().unwrap())
-}
-
-/// Form data for background image.
-#[derive(Deserialize)]
-struct BackgroundForm {
-    background_image: String,
-}
-
-/// POST /background - Set background image
-async fn background_set(
-    State(state): State<Arc<AppState>>,
-    Form(form): Form<BackgroundForm>,
-) -> impl IntoResponse {
-    let path = if form.background_image.is_empty() {
-        None
-    } else {
-        Some(std::path::PathBuf::from(&form.background_image))
-    };
-    state.set_background_image(path);
-
-    let background_image = state
-        .background_image()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default();
-    Html(BackgroundTemplate { background_image }.render().unwrap())
-}
-
-/// POST /background/clear - Clear background image
-async fn background_clear(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    state.set_background_image(None);
-    let background_image = String::new();
-    Html(BackgroundTemplate { background_image }.render().unwrap())
 }
 
 /// GET /network-interface - Network interface controls partial

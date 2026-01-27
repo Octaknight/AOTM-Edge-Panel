@@ -58,15 +58,6 @@ trait Daemon1 {
     /// Lists available color themes.
     fn list_themes(&self) -> zbus::Result<Vec<String>>;
 
-    /// Gets the background image path.
-    fn get_background_image(&self) -> zbus::Result<String>;
-
-    /// Sets the background image path.
-    fn set_background_image(&self, path: &str) -> zbus::Result<()>;
-
-    /// Clears the background image.
-    fn clear_background_image(&self) -> zbus::Result<()>;
-
     /// Gets the refresh interval in milliseconds.
     fn get_refresh_interval(&self) -> zbus::Result<u32>;
 
@@ -263,30 +254,6 @@ impl DaemonClient {
             .list_themes()
             .await
             .context("Failed to list themes via D-Bus")
-    }
-
-    /// Gets the background image path.
-    pub async fn get_background_image(&self) -> Result<String> {
-        self.proxy
-            .get_background_image()
-            .await
-            .context("Failed to get background image via D-Bus")
-    }
-
-    /// Sets the background image path.
-    pub async fn set_background_image(&self, path: &str) -> Result<()> {
-        self.proxy
-            .set_background_image(path)
-            .await
-            .context("Failed to set background image via D-Bus")
-    }
-
-    /// Clears the background image.
-    pub async fn clear_background_image(&self) -> Result<()> {
-        self.proxy
-            .clear_background_image()
-            .await
-            .context("Failed to clear background image via D-Bus")
     }
 
     /// Gets the refresh interval in milliseconds.

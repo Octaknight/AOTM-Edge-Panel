@@ -20,7 +20,7 @@ pub enum DaemonSignals {
     OrientationChanged,
     /// LED settings changed.
     LedChanged,
-    /// Display settings (colors, background image, etc.) changed.
+    /// Display settings (theme, face, etc.) changed.
     DisplaySettingsChanged,
     /// Network interface changed.
     NetworkInterfaceChanged,
@@ -123,35 +123,6 @@ impl Daemon1Interface {
             .iter()
             .map(|s| s.to_string())
             .collect()
-    }
-
-    /// Gets the background image path (empty string if none).
-    fn get_background_image(&self) -> String {
-        self.state
-            .background_image()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_default()
-    }
-
-    /// Sets the background image path.
-    fn set_background_image(&self, path: &str) -> zbus::fdo::Result<()> {
-        let bg_path = if path.is_empty() {
-            None
-        } else {
-            Some(std::path::PathBuf::from(path))
-        };
-        self.state.set_background_image(bg_path);
-
-        let _ = self.signal_tx.send(DaemonSignals::DisplaySettingsChanged);
-        debug!("D-Bus: SetBackgroundImage({})", path);
-        Ok(())
-    }
-
-    /// Clears the background image.
-    fn clear_background_image(&self) {
-        self.state.set_background_image(None);
-        let _ = self.signal_tx.send(DaemonSignals::DisplaySettingsChanged);
-        debug!("D-Bus: ClearBackgroundImage");
     }
 
     /// Returns the current framebuffer as PNG data.
@@ -263,15 +234,6 @@ impl Daemon1Interface {
     #[zbus(property)]
     fn theme(&self) -> String {
         self.state.theme_name()
-    }
-
-    /// Current background image path (empty if none).
-    #[zbus(property)]
-    fn background_image(&self) -> String {
-        self.state
-            .background_image()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_default()
     }
 
     /// Current display face name.

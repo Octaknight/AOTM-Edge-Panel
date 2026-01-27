@@ -35,10 +35,6 @@ pub struct DisplaySettings {
     #[serde(default = "default_theme")]
     pub theme: String,
 
-    /// Optional background image path.
-    #[serde(default)]
-    pub background_image: Option<String>,
-
     /// LED theme (1=rainbow, 2=breathing, 3=colors, 4=off, 5=auto).
     #[serde(default = "default_led_theme")]
     pub led_theme: u8,
@@ -86,7 +82,6 @@ impl Default for DisplaySettings {
             face: default_face(),
             orientation: "landscape".to_string(),
             theme: default_theme(),
-            background_image: None,
             led_theme: default_led_theme(),
             led_intensity: default_led_value(),
             led_speed: default_led_value(),
@@ -193,9 +188,6 @@ pub struct AppState {
     /// Current color theme name
     theme_name: RwLock<String>,
 
-    /// Background image path (optional)
-    background_image: RwLock<Option<PathBuf>>,
-
     /// Refresh interval in milliseconds (1500-10000)
     refresh_interval_ms: RwLock<u32>,
 
@@ -264,9 +256,6 @@ impl AppState {
         let theme = Theme::from_preset(&settings.theme);
         canvas.set_background(theme.background);
 
-        // Parse background image path
-        let bg_image = settings.background_image.map(PathBuf::from);
-
         info!("Display orientation: {}", orientation);
         info!("Theme: {}", settings.theme);
 
@@ -286,7 +275,6 @@ impl AppState {
             sensors: Mutex::new(sensors),
             face: RwLock::new(face),
             theme_name: RwLock::new(settings.theme),
-            background_image: RwLock::new(bg_image),
             refresh_interval_ms: RwLock::new(settings.refresh_interval_ms),
             network_interface: RwLock::new(network_interface),
         })
@@ -309,12 +297,6 @@ impl AppState {
             face: self.face.read().unwrap().name().to_string(),
             orientation: self.orientation.read().unwrap().to_string(),
             theme: self.theme_name.read().unwrap().clone(),
-            background_image: self
-                .background_image
-                .read()
-                .unwrap()
-                .as_ref()
-                .map(|p| p.to_string_lossy().to_string()),
             led_theme: *self.led_theme.read().unwrap(),
             led_intensity: *self.led_intensity.read().unwrap(),
             led_speed: *self.led_speed.read().unwrap(),
@@ -681,34 +663,12 @@ impl AppState {
         faces::available_themes()
     }
 
-    /// Gets the background image path (if any).
-    pub fn background_image(&self) -> Option<PathBuf> {
-        self.background_image.read().unwrap().clone()
-    }
-
-    /// Sets the background image path.
-    pub fn set_background_image(&self, path: Option<PathBuf>) {
-        *self.background_image.write().unwrap() = path.clone();
-        *self.needs_redraw.write().unwrap() = true;
-        self.save_display_settings();
-        match path {
-            Some(p) => info!("Background image set to {:?}", p),
-            None => info!("Background image cleared"),
-        }
-    }
-
     /// Gets the current display settings as a struct.
     pub fn display_settings(&self) -> DisplaySettings {
         DisplaySettings {
             face: self.face.read().unwrap().name().to_string(),
             orientation: self.orientation.read().unwrap().to_string(),
             theme: self.theme_name.read().unwrap().clone(),
-            background_image: self
-                .background_image
-                .read()
-                .unwrap()
-                .as_ref()
-                .map(|p| p.to_string_lossy().to_string()),
             led_theme: *self.led_theme.read().unwrap(),
             led_intensity: *self.led_intensity.read().unwrap(),
             led_speed: *self.led_speed.read().unwrap(),

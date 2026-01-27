@@ -62,11 +62,6 @@ enum Commands {
         #[command(subcommand)]
         action: ThemeCommands,
     },
-    /// Background image settings
-    Background {
-        #[command(subcommand)]
-        action: BackgroundCommands,
-    },
     /// Network interface settings
     Network {
         #[command(subcommand)]
@@ -155,19 +150,6 @@ enum ThemeCommands {
 }
 
 #[derive(Subcommand)]
-enum BackgroundCommands {
-    /// Show current background image
-    Show,
-    /// Set background image
-    Set {
-        /// Path to image file
-        path: String,
-    },
-    /// Clear background image
-    Clear,
-}
-
-#[derive(Subcommand)]
 enum NetworkCommands {
     /// Show current network interface
     Show,
@@ -201,7 +183,6 @@ async fn main() -> Result<()> {
         Commands::Lcd { action } => handle_lcd(action, &client).await,
         Commands::Led { action } => handle_led(action, &client).await,
         Commands::Theme { action } => handle_theme(action, &client).await,
-        Commands::Background { action } => handle_background(action, &client).await,
         Commands::Network { action } => handle_network(action, &client).await,
         Commands::Screenshot { output } => handle_screenshot(&output, &client).await,
         Commands::Daemon { action } => handle_daemon(action, &client).await,
@@ -344,29 +325,6 @@ async fn handle_theme(action: ThemeCommands, client: &DaemonClient) -> Result<()
             for theme in themes {
                 println!("  {}", theme);
             }
-        }
-    }
-
-    Ok(())
-}
-
-async fn handle_background(action: BackgroundCommands, client: &DaemonClient) -> Result<()> {
-    match action {
-        BackgroundCommands::Show => {
-            let path = client.get_background_image().await?;
-            if path.is_empty() {
-                println!("Background image: none");
-            } else {
-                println!("Background image: {}", path);
-            }
-        }
-        BackgroundCommands::Set { path } => {
-            client.set_background_image(&path).await?;
-            println!("Background image set to: {}", path);
-        }
-        BackgroundCommands::Clear => {
-            client.clear_background_image().await?;
-            println!("Background image cleared");
         }
     }
 
