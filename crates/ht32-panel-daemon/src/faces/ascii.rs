@@ -294,7 +294,7 @@ impl Face for AsciiFace {
             );
             y += GRAPH_HEIGHT as i32 + 4;
 
-            // Network interface and IPs (indented under interface name)
+            // Network interface and IPs (landscape: IPs on same line)
             canvas.draw_text(
                 margin,
                 y,
@@ -305,12 +305,14 @@ impl Face for AsciiFace {
             y += canvas.line_height(FONT_NORMAL) + 2;
 
             let indent = margin + 12;
-            if let Some(ref ipv4) = data.ipv4_address {
-                canvas.draw_text(indent, y, ipv4, FONT_SMALL, colors.dim);
-                y += canvas.line_height(FONT_SMALL) + 2;
-            }
-            if let Some(ref ipv6) = data.ipv6_address {
-                canvas.draw_text(indent, y, ipv6, FONT_SMALL, colors.dim);
+            let ip_text = match (&data.ipv4_address, &data.ipv6_address) {
+                (Some(v4), Some(v6)) => format!("{}, {}", v4, v6),
+                (Some(v4), None) => v4.clone(),
+                (None, Some(v6)) => v6.clone(),
+                (None, None) => String::new(),
+            };
+            if !ip_text.is_empty() {
+                canvas.draw_text(indent, y, &ip_text, FONT_SMALL, colors.dim);
             }
         }
     }
