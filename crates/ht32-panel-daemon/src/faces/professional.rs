@@ -238,16 +238,24 @@ impl Face for ProfessionalFace {
             );
             y += canvas.line_height(FONT_SMALL) + 4;
 
-            // Network interface and IPs
+            // Network interface and IPs (indented under interface name)
             canvas.draw_text(margin, y, &data.net_interface, FONT_SMALL, colors.highlight);
             y += canvas.line_height(FONT_SMALL) + 2;
 
+            let indent = margin + 8;
             if let Some(ref ipv4) = data.ipv4_address {
-                canvas.draw_text(margin, y, ipv4, FONT_SMALL, colors.dim);
+                canvas.draw_text(indent, y, ipv4, FONT_SMALL, colors.dim);
                 y += canvas.line_height(FONT_SMALL) + 2;
             }
             if let Some(ref ipv6) = data.ipv6_address {
-                canvas.draw_text(margin, y, ipv6, FONT_SMALL, colors.dim);
+                // Truncate IPv6 in portrait mode to prevent cutoff
+                let max_chars = ((width as i32 - indent - margin) / 6) as usize; // ~6px per char
+                let ipv6_display = if ipv6.len() > max_chars && max_chars > 3 {
+                    format!("{}...", &ipv6[..max_chars - 3])
+                } else {
+                    ipv6.clone()
+                };
+                canvas.draw_text(indent, y, &ipv6_display, FONT_SMALL, colors.dim);
             }
         } else {
             // Landscape layout
@@ -362,17 +370,17 @@ impl Face for ProfessionalFace {
             );
             y += canvas.line_height(FONT_SMALL) + 4;
 
-            // Network interface and IPs on one line
-            let mut net_info = data.net_interface.clone();
-            if let Some(ref ipv4) = data.ipv4_address {
-                net_info.push_str(": ");
-                net_info.push_str(ipv4);
-            }
-            canvas.draw_text(margin, y, &net_info, FONT_SMALL, colors.highlight);
+            // Network interface and IPs (indented under interface name)
+            canvas.draw_text(margin, y, &data.net_interface, FONT_SMALL, colors.highlight);
             y += canvas.line_height(FONT_SMALL) + 2;
 
+            let indent = margin + 12;
+            if let Some(ref ipv4) = data.ipv4_address {
+                canvas.draw_text(indent, y, ipv4, FONT_SMALL, colors.dim);
+                y += canvas.line_height(FONT_SMALL) + 2;
+            }
             if let Some(ref ipv6) = data.ipv6_address {
-                canvas.draw_text(margin, y, ipv6, FONT_SMALL, colors.dim);
+                canvas.draw_text(indent, y, ipv6, FONT_SMALL, colors.dim);
             }
         }
     }
