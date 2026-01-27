@@ -7,9 +7,6 @@ enable = false
 # Server listen address
 listen = "[::1]:8686"
 
-# Path to theme configuration
-theme = "themes/default.toml"
-
 # Render loop poll interval (milliseconds)
 poll = 500
 

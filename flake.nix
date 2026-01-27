@@ -63,7 +63,6 @@
             postInstall = ''
               mkdir -p $out/share/ht32-panel
               cp -r config $out/share/ht32-panel/
-              cp -r themes $out/share/ht32-panel/
             '';
           });
 
@@ -73,7 +72,6 @@
             postInstall = ''
               mkdir -p $out/share/ht32-panel
               cp -r config $out/share/ht32-panel/
-              cp -r themes $out/share/ht32-panel/
             '';
           });
 

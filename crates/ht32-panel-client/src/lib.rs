@@ -1,10 +1,22 @@
-//! D-Bus client for communicating with the HT32 Panel Daemon.
+//! D-Bus client library for communicating with the HT32 Panel Daemon.
+//!
+//! This crate provides a unified client for both CLI and applet use cases.
 
 use anyhow::{Context, Result};
-use tracing::warn;
+use tracing::debug;
 use zbus::{proxy, Connection};
 
-use crate::BusType;
+/// D-Bus bus type selection.
+#[derive(Debug, Clone, Copy, Default)]
+pub enum BusType {
+    /// Session bus (user session).
+    Session,
+    /// System bus (system-wide).
+    System,
+    /// Try session first, fall back to system.
+    #[default]
+    Auto,
+}
 
 /// D-Bus proxy for the HT32 Panel Daemon.
 #[proxy(
@@ -28,6 +40,15 @@ trait Daemon1 {
     /// Gets the current face name.
     fn get_face(&self) -> zbus::Result<String>;
 
+    /// Sets LED parameters.
+    fn set_led(&self, theme: u8, intensity: u8, speed: u8) -> zbus::Result<()>;
+
+    /// Turns off LEDs.
+    fn led_off(&self) -> zbus::Result<()>;
+
+    /// Gets current LED settings as (theme, intensity, speed).
+    fn get_led_settings(&self) -> zbus::Result<(u8, u8, u8)>;
+
     /// Gets the background color as hex string.
     fn get_background_color(&self) -> zbus::Result<String>;
 
@@ -49,17 +70,23 @@ trait Daemon1 {
     /// Clears the background image.
     fn clear_background_image(&self) -> zbus::Result<()>;
 
+    /// Gets the refresh rate in seconds.
+    fn get_refresh_rate(&self) -> zbus::Result<u32>;
+
+    /// Sets the refresh rate in seconds.
+    fn set_refresh_rate(&self, secs: u32) -> zbus::Result<()>;
+
+    /// Gets the current network interface.
+    fn get_network_interface(&self) -> zbus::Result<String>;
+
+    /// Sets the network interface to monitor.
+    fn set_network_interface(&self, interface: &str) -> zbus::Result<()>;
+
+    /// Lists all available network interfaces.
+    fn list_network_interfaces(&self) -> zbus::Result<Vec<String>>;
+
     /// Returns the current framebuffer as PNG data.
     fn get_screen_png(&self) -> zbus::Result<Vec<u8>>;
-
-    /// Sets LED parameters.
-    fn set_led(&self, theme: u8, intensity: u8, speed: u8) -> zbus::Result<()>;
-
-    /// Turns off LEDs.
-    fn led_off(&self) -> zbus::Result<()>;
-
-    /// Gets current LED settings as (theme, intensity, speed).
-    fn get_led_settings(&self) -> zbus::Result<(u8, u8, u8)>;
 
     /// Shuts down the daemon.
     fn quit(&self) -> zbus::Result<()>;
@@ -67,6 +94,10 @@ trait Daemon1 {
     /// Whether the LCD device is connected.
     #[zbus(property)]
     fn connected(&self) -> zbus::Result<bool>;
+
+    /// Whether the web UI is enabled.
+    #[zbus(property)]
+    fn web_enabled(&self) -> zbus::Result<bool>;
 
     /// Current display orientation.
     #[zbus(property)]
@@ -84,28 +115,17 @@ trait Daemon1 {
     #[zbus(property)]
     fn led_speed(&self) -> zbus::Result<u8>;
 
-    /// Gets the refresh rate in seconds.
-    fn get_refresh_rate(&self) -> zbus::Result<u32>;
-
-    /// Sets the refresh rate in seconds.
-    fn set_refresh_rate(&self, secs: u32) -> zbus::Result<()>;
-
     /// Current refresh rate in seconds.
     #[zbus(property)]
     fn refresh_rate(&self) -> zbus::Result<u32>;
 
-    /// Gets the current network interface.
-    fn get_network_interface(&self) -> zbus::Result<String>;
-
-    /// Sets the network interface to monitor.
-    fn set_network_interface(&self, interface: &str) -> zbus::Result<()>;
-
-    /// Lists all available network interfaces.
-    fn list_network_interfaces(&self) -> zbus::Result<Vec<String>>;
-
     /// Current network interface name.
     #[zbus(property)]
     fn network_interface(&self) -> zbus::Result<String>;
+
+    /// Current display face name.
+    #[zbus(property)]
+    fn face(&self) -> zbus::Result<String>;
 }
 
 /// D-Bus client wrapper for the daemon.
@@ -114,37 +134,48 @@ pub struct DaemonClient {
 }
 
 impl DaemonClient {
-    /// Attempts to connect to the daemon via D-Bus.
-    pub async fn connect(bus_type: BusType) -> Result<Self> {
-        match bus_type {
-            BusType::Session => Self::connect_to_bus(Connection::session().await?).await,
-            BusType::System => Self::connect_to_bus(Connection::system().await?).await,
-            BusType::Auto => {
-                // Try session bus first, fall back to system bus
-                if let Ok(session_conn) = Connection::session().await {
-                    if let Ok(client) = Self::connect_to_bus(session_conn).await {
-                        return Ok(client);
-                    }
-                    warn!("Daemon not found on session bus, trying system bus");
-                }
-                let system_conn = Connection::system()
-                    .await
-                    .context("Failed to connect to any D-Bus")?;
-                Self::connect_to_bus(system_conn)
-                    .await
-                    .context("Daemon not found on session or system bus")
-            }
-        }
+    /// Attempts to connect to the daemon via D-Bus with auto bus detection.
+    ///
+    /// Tries session bus first, falls back to system bus.
+    pub async fn connect() -> Result<Self> {
+        Self::connect_with_bus(BusType::Auto).await
     }
 
-    /// Connect to the daemon on a specific bus connection.
-    async fn connect_to_bus(connection: Connection) -> Result<Self> {
+    /// Attempts to connect to the daemon via D-Bus with specified bus type.
+    pub async fn connect_with_bus(bus_type: BusType) -> Result<Self> {
+        let connection = match bus_type {
+            BusType::Session => {
+                debug!("Connecting to session bus");
+                Connection::session()
+                    .await
+                    .context("Failed to connect to session bus")?
+            }
+            BusType::System => {
+                debug!("Connecting to system bus");
+                Connection::system()
+                    .await
+                    .context("Failed to connect to system bus")?
+            }
+            BusType::Auto => match Connection::session().await {
+                Ok(conn) => {
+                    debug!("Connected to session bus");
+                    conn
+                }
+                Err(session_err) => {
+                    debug!(
+                        "Session bus unavailable ({}), trying system bus",
+                        session_err
+                    );
+                    Connection::system()
+                        .await
+                        .context("Failed to connect to any D-Bus")?
+                }
+            },
+        };
+
         let proxy = Daemon1Proxy::new(&connection)
             .await
             .context("Failed to create D-Bus proxy")?;
-
-        // Verify daemon is running by checking a property
-        proxy.connected().await.context("Daemon not responding")?;
 
         Ok(Self { proxy })
     }
@@ -213,38 +244,6 @@ impl DaemonClient {
             .context("Failed to get LED settings via D-Bus")
     }
 
-    /// Shuts down the daemon.
-    pub async fn quit(&self) -> Result<()> {
-        self.proxy
-            .quit()
-            .await
-            .context("Failed to quit daemon via D-Bus")
-    }
-
-    /// Checks if the LCD is connected.
-    pub async fn is_connected(&self) -> Result<bool> {
-        self.proxy
-            .connected()
-            .await
-            .context("Failed to get connection status via D-Bus")
-    }
-
-    /// Gets the refresh rate in seconds.
-    pub async fn get_refresh_rate(&self) -> Result<u32> {
-        self.proxy
-            .get_refresh_rate()
-            .await
-            .context("Failed to get refresh rate via D-Bus")
-    }
-
-    /// Sets the refresh rate in seconds.
-    pub async fn set_refresh_rate(&self, secs: u32) -> Result<()> {
-        self.proxy
-            .set_refresh_rate(secs)
-            .await
-            .context("Failed to set refresh rate via D-Bus")
-    }
-
     /// Gets the background color as hex string.
     pub async fn get_background_color(&self) -> Result<String> {
         self.proxy
@@ -301,12 +300,20 @@ impl DaemonClient {
             .context("Failed to clear background image via D-Bus")
     }
 
-    /// Gets the screen as PNG data.
-    pub async fn get_screen_png(&self) -> Result<Vec<u8>> {
+    /// Gets the refresh rate in seconds.
+    pub async fn get_refresh_rate(&self) -> Result<u32> {
         self.proxy
-            .get_screen_png()
+            .get_refresh_rate()
             .await
-            .context("Failed to get screen PNG via D-Bus")
+            .context("Failed to get refresh rate via D-Bus")
+    }
+
+    /// Sets the refresh rate in seconds.
+    pub async fn set_refresh_rate(&self, secs: u32) -> Result<()> {
+        self.proxy
+            .set_refresh_rate(secs)
+            .await
+            .context("Failed to set refresh rate via D-Bus")
     }
 
     /// Gets the current network interface.
@@ -317,7 +324,7 @@ impl DaemonClient {
             .context("Failed to get network interface via D-Bus")
     }
 
-    /// Sets the network interface to monitor.
+    /// Sets the network interface.
     pub async fn set_network_interface(&self, interface: &str) -> Result<()> {
         self.proxy
             .set_network_interface(interface)
@@ -325,11 +332,43 @@ impl DaemonClient {
             .context("Failed to set network interface via D-Bus")
     }
 
-    /// Lists all available network interfaces.
+    /// Lists available network interfaces.
     pub async fn list_network_interfaces(&self) -> Result<Vec<String>> {
         self.proxy
             .list_network_interfaces()
             .await
             .context("Failed to list network interfaces via D-Bus")
+    }
+
+    /// Gets the screen as PNG data.
+    pub async fn get_screen_png(&self) -> Result<Vec<u8>> {
+        self.proxy
+            .get_screen_png()
+            .await
+            .context("Failed to get screen PNG via D-Bus")
+    }
+
+    /// Shuts down the daemon.
+    pub async fn quit(&self) -> Result<()> {
+        self.proxy
+            .quit()
+            .await
+            .context("Failed to quit daemon via D-Bus")
+    }
+
+    /// Checks if the LCD is connected.
+    pub async fn is_connected(&self) -> Result<bool> {
+        self.proxy
+            .connected()
+            .await
+            .context("Failed to get connection status via D-Bus")
+    }
+
+    /// Checks if the web UI is enabled.
+    pub async fn is_web_enabled(&self) -> Result<bool> {
+        self.proxy
+            .web_enabled()
+            .await
+            .context("Failed to get web enabled status via D-Bus")
     }
 }

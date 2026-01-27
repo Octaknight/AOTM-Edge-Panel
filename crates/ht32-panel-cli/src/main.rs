@@ -2,16 +2,13 @@
 //!
 //! CLI for controlling the HT32 Panel daemon via D-Bus.
 
-mod dbus_client;
-
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use ht32_panel_client::{BusType, DaemonClient};
 use tracing_subscriber::EnvFilter;
 
-use dbus_client::DaemonClient;
-
 #[derive(Clone, Copy, Debug, Default, clap::ValueEnum)]
-enum BusType {
+enum CliBusType {
     /// Try session bus first, fall back to system bus
     #[default]
     Auto,
@@ -19,6 +16,16 @@ enum BusType {
     Session,
     /// Use system bus (for system services)
     System,
+}
+
+impl From<CliBusType> for BusType {
+    fn from(bus: CliBusType) -> Self {
+        match bus {
+            CliBusType::Auto => BusType::Auto,
+            CliBusType::Session => BusType::Session,
+            CliBusType::System => BusType::System,
+        }
+    }
 }
 
 #[derive(Parser)]
@@ -32,7 +39,7 @@ struct Cli {
 
     /// D-Bus bus type to use
     #[arg(long, default_value = "auto", value_enum)]
-    bus: BusType,
+    bus: CliBusType,
 
     #[command(subcommand)]
     command: Commands,
@@ -189,7 +196,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt().with_env_filter(filter).init();
 
     // Connect to daemon
-    let client = DaemonClient::connect(cli.bus)
+    let client = DaemonClient::connect_with_bus(cli.bus.into())
         .await
         .context("Failed to connect to daemon. Is ht32paneld running?")?;
 

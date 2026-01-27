@@ -386,6 +386,11 @@ impl AppState {
         self.lcd.is_some()
     }
 
+    /// Returns true if the web UI is enabled.
+    pub fn is_web_enabled(&self) -> bool {
+        self.config.read().unwrap().web.enable
+    }
+
     /// Sets the display orientation.
     pub fn set_orientation(&self, orientation: Orientation) -> Result<()> {
         // Always keep hardware in landscape mode - we handle orientation in software

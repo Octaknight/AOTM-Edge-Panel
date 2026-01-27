@@ -236,6 +236,12 @@ impl Daemon1Interface {
         self.state.is_lcd_connected()
     }
 
+    /// Whether the web UI is enabled.
+    #[zbus(property)]
+    fn web_enabled(&self) -> bool {
+        self.state.is_web_enabled()
+    }
+
     /// Current display orientation.
     #[zbus(property)]
     fn orientation(&self) -> String {

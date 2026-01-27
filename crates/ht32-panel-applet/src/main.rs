@@ -3,17 +3,16 @@
 //! Provides quick access to LCD and LED controls via the system tray.
 //! Works with both GNOME (via AppIndicator extension) and KDE (native SNI).
 
-mod dbus_client;
 mod tray;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use ht32_panel_client::DaemonClient;
 use tracing::{debug, error, info};
 use tracing_subscriber::EnvFilter;
 
-use dbus_client::DaemonClient;
 use tray::{create_tray, TrayCommand, TrayState};
 
 #[tokio::main]
@@ -51,6 +50,10 @@ async fn main() -> Result<()> {
                             let mut s = cmd_state.lock().unwrap();
                             s.connected = conn;
                         }
+                        if let Ok(web) = c.is_web_enabled().await {
+                            let mut s = cmd_state.lock().unwrap();
+                            s.web_enabled = web;
+                        }
                         if let Ok(orient) = c.get_orientation().await {
                             let mut s = cmd_state.lock().unwrap();
                             s.orientation = orient;
@@ -60,6 +63,22 @@ async fn main() -> Result<()> {
                             s.led_theme = theme;
                             s.led_intensity = intensity;
                             s.led_speed = speed;
+                        }
+                        if let Ok(face) = c.get_face().await {
+                            let mut s = cmd_state.lock().unwrap();
+                            s.face = face;
+                        }
+                        if let Ok(rate) = c.get_refresh_rate().await {
+                            let mut s = cmd_state.lock().unwrap();
+                            s.refresh_rate = rate;
+                        }
+                        if let Ok(iface) = c.get_network_interface().await {
+                            let mut s = cmd_state.lock().unwrap();
+                            s.network_interface = iface;
+                        }
+                        if let Ok(interfaces) = c.list_network_interfaces().await {
+                            let mut s = cmd_state.lock().unwrap();
+                            s.network_interfaces = interfaces;
                         }
 
                         client = Some(c);
@@ -103,6 +122,55 @@ async fn main() -> Result<()> {
                                     }
                                     Err(e) => {
                                         error!("Failed to set orientation: {}", e);
+                                        client = None; // Mark for reconnection
+                                    }
+                                }
+                            }
+                        }
+                        Some(TrayCommand::SetFace(face)) => {
+                            if let Some(ref c) = client {
+                                match c.set_face(&face).await {
+                                    Ok(()) => {
+                                        let mut s = cmd_state.lock().unwrap();
+                                        s.face = face.clone();
+                                        debug!("Face set to {}", face);
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to set face: {}", e);
+                                        client = None; // Mark for reconnection
+                                    }
+                                }
+                            }
+                        }
+                        Some(TrayCommand::SetRefreshRate(secs)) => {
+                            if let Some(ref c) = client {
+                                match c.set_refresh_rate(secs).await {
+                                    Ok(()) => {
+                                        let mut s = cmd_state.lock().unwrap();
+                                        s.refresh_rate = secs;
+                                        debug!("Refresh rate set to {}s", secs);
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to set refresh rate: {}", e);
+                                        client = None; // Mark for reconnection
+                                    }
+                                }
+                            }
+                        }
+                        Some(TrayCommand::SetNetworkInterface(interface)) => {
+                            if let Some(ref c) = client {
+                                match c.set_network_interface(&interface).await {
+                                    Ok(()) => {
+                                        let mut s = cmd_state.lock().unwrap();
+                                        s.network_interface = if interface == "auto" {
+                                            String::new()
+                                        } else {
+                                            interface.clone()
+                                        };
+                                        debug!("Network interface set to {}", interface);
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to set network interface: {}", e);
                                         client = None; // Mark for reconnection
                                     }
                                 }

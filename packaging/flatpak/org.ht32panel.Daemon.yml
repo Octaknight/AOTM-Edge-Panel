@@ -29,7 +29,6 @@ modules:
       - install -Dm644 packaging/org.ht32panel.Daemon.desktop -t /app/share/applications/
       - install -Dm644 packaging/org.ht32panel.Daemon.svg -t /app/share/icons/hicolor/scalable/apps/
       - mkdir -p /app/share/ht32-panel
-      - cp -r config themes /app/share/ht32-panel/
     sources:
       - type: dir
         path: ../..

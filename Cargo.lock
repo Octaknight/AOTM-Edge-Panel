@@ -985,12 +985,12 @@ name = "ht32-panel-applet"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "ht32-panel-client",
  "ksni",
  "open",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "zbus",
 ]
 
 [[package]]
@@ -999,9 +999,18 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap 4.5.54",
+ "ht32-panel-client",
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "ht32-panel-client"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "tracing",
  "zbus",
 ]
 

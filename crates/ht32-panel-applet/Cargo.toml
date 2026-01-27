@@ -11,9 +11,9 @@ path = "src/main.rs"
 
 [dependencies]
 ksni = "0.2"
-zbus = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 open = "5"
+ht32-panel-client = { workspace = true }

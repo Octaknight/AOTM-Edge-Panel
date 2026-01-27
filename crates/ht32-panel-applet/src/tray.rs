@@ -22,31 +22,56 @@ const ORIENTATIONS: &[(&str, &str)] = &[
     ("Portrait (Upside Down)", "portrait-upside-down"),
 ];
 
+/// Face options: (display name, face string)
+const FACES: &[(&str, &str)] = &[("Minimal", "minimal"), ("Detailed", "detailed")];
+
+/// Refresh rate options in seconds: (display name, seconds)
+const REFRESH_RATES: &[(&str, u32)] = &[
+    ("2 seconds", 2),
+    ("5 seconds", 5),
+    ("10 seconds", 10),
+    ("30 seconds", 30),
+    ("60 seconds", 60),
+];
+
 /// Commands that can be sent from tray callbacks to the async worker.
 #[derive(Debug, Clone)]
 pub enum TrayCommand {
     SetLedTheme(u8),
     SetOrientation(String),
+    SetFace(String),
+    SetRefreshRate(u32),
+    SetNetworkInterface(String),
     QuitDaemon,
 }
 
 /// Shared state for the tray applet.
 pub struct TrayState {
     pub connected: bool,
+    pub web_enabled: bool,
     pub led_theme: u8,
     pub led_intensity: u8,
     pub led_speed: u8,
     pub orientation: String,
+    pub face: String,
+    pub refresh_rate: u32,
+    pub network_interface: String,
+    pub network_interfaces: Vec<String>,
 }
 
 impl Default for TrayState {
     fn default() -> Self {
         Self {
             connected: false,
+            web_enabled: false,
             led_theme: 2, // Breathing
             led_intensity: 3,
             led_speed: 3,
             orientation: "landscape".to_string(),
+            face: "minimal".to_string(),
+            refresh_rate: 5,
+            network_interface: String::new(),
+            network_interfaces: Vec::new(),
         }
     }
 }
@@ -93,6 +118,63 @@ impl HT32PanelTray {
         }
     }
 
+    fn set_face(&mut self, index: usize) {
+        if let Some((_, face)) = FACES.get(index) {
+            if let Err(e) = self.command_tx.send(TrayCommand::SetFace(face.to_string())) {
+                debug!("Failed to send face command: {}", e);
+            }
+            // Update local state immediately for UI feedback
+            if let Ok(mut s) = self.state.lock() {
+                s.face = face.to_string();
+            }
+        }
+    }
+
+    fn set_refresh_rate(&mut self, index: usize) {
+        if let Some((_, secs)) = REFRESH_RATES.get(index) {
+            if let Err(e) = self.command_tx.send(TrayCommand::SetRefreshRate(*secs)) {
+                debug!("Failed to send refresh rate command: {}", e);
+            }
+            // Update local state immediately for UI feedback
+            if let Ok(mut s) = self.state.lock() {
+                s.refresh_rate = *secs;
+            }
+        }
+    }
+
+    fn set_network_interface(&mut self, index: usize) {
+        let interface = {
+            let state = self.state.lock().unwrap();
+            // Index 0 is "Auto", rest are actual interfaces
+            if index == 0 {
+                "auto".to_string()
+            } else {
+                state
+                    .network_interfaces
+                    .get(index - 1)
+                    .cloned()
+                    .unwrap_or_default()
+            }
+        };
+
+        if !interface.is_empty() {
+            if let Err(e) = self
+                .command_tx
+                .send(TrayCommand::SetNetworkInterface(interface.clone()))
+            {
+                debug!("Failed to send network interface command: {}", e);
+            }
+            // Update local state immediately for UI feedback
+            if let Ok(mut s) = self.state.lock() {
+                s.network_interface = if interface == "auto" {
+                    String::new()
+                } else {
+                    interface
+                };
+            }
+        }
+    }
+
     fn quit_daemon(&self) {
         if let Err(e) = self.command_tx.send(TrayCommand::QuitDaemon) {
             debug!("Failed to send quit command: {}", e);
@@ -128,6 +210,11 @@ impl Tray for HT32PanelTray {
         let state = self.state.lock().unwrap();
         let current_theme = state.led_theme;
         let current_orientation = state.orientation.clone();
+        let current_face = state.face.clone();
+        let current_refresh_rate = state.refresh_rate;
+        let current_network = state.network_interface.clone();
+        let network_interfaces = state.network_interfaces.clone();
+        let web_enabled = state.web_enabled;
         drop(state);
 
         // Find current LED theme index
@@ -141,6 +228,29 @@ impl Tray for HT32PanelTray {
             .iter()
             .position(|(_, o)| *o == current_orientation)
             .unwrap_or(0);
+
+        // Find current face index
+        let face_selected = FACES
+            .iter()
+            .position(|(_, f)| *f == current_face)
+            .unwrap_or(0);
+
+        // Find current refresh rate index
+        let refresh_selected = REFRESH_RATES
+            .iter()
+            .position(|(_, r)| *r == current_refresh_rate)
+            .unwrap_or(1); // Default to 5 seconds
+
+        // Find current network interface index (0 = auto)
+        let network_selected = if current_network.is_empty() {
+            0 // Auto
+        } else {
+            network_interfaces
+                .iter()
+                .position(|i| i == &current_network)
+                .map(|i| i + 1) // +1 because "Auto" is at index 0
+                .unwrap_or(0)
+        };
 
         // Create LED theme radio items
         let led_options: Vec<RadioItem> = LED_THEMES
@@ -160,15 +270,45 @@ impl Tray for HT32PanelTray {
             })
             .collect();
 
-        vec![
+        // Create face radio items
+        let face_options: Vec<RadioItem> = FACES
+            .iter()
+            .map(|(name, _)| RadioItem {
+                label: name.to_string(),
+                ..Default::default()
+            })
+            .collect();
+
+        // Create refresh rate radio items
+        let refresh_options: Vec<RadioItem> = REFRESH_RATES
+            .iter()
+            .map(|(name, _)| RadioItem {
+                label: name.to_string(),
+                ..Default::default()
+            })
+            .collect();
+
+        // Create network interface radio items (Auto + available interfaces)
+        let mut network_options: Vec<RadioItem> = vec![RadioItem {
+            label: "Auto".to_string(),
+            ..Default::default()
+        }];
+        for iface in &network_interfaces {
+            network_options.push(RadioItem {
+                label: iface.clone(),
+                ..Default::default()
+            });
+        }
+
+        let mut items = vec![
             SubMenu {
-                label: "LED Theme".to_string(),
+                label: "Display Face".to_string(),
                 submenu: vec![RadioGroup {
-                    selected: led_selected,
+                    selected: face_selected,
                     select: Box::new(|tray: &mut Self, index| {
-                        tray.set_led_theme(index);
+                        tray.set_face(index);
                     }),
-                    options: led_options,
+                    options: face_options,
                 }
                 .into()],
                 ..Default::default()
@@ -187,16 +327,64 @@ impl Tray for HT32PanelTray {
                 ..Default::default()
             }
             .into(),
-            MenuItem::Separator,
-            StandardItem {
-                label: "Open Web UI".to_string(),
-                activate: Box::new(|tray: &mut Self| {
-                    tray.open_web_ui();
-                }),
+            SubMenu {
+                label: "Network Interface".to_string(),
+                submenu: vec![RadioGroup {
+                    selected: network_selected,
+                    select: Box::new(|tray: &mut Self, index| {
+                        tray.set_network_interface(index);
+                    }),
+                    options: network_options,
+                }
+                .into()],
+                ..Default::default()
+            }
+            .into(),
+            SubMenu {
+                label: "Refresh Rate".to_string(),
+                submenu: vec![RadioGroup {
+                    selected: refresh_selected,
+                    select: Box::new(|tray: &mut Self, index| {
+                        tray.set_refresh_rate(index);
+                    }),
+                    options: refresh_options,
+                }
+                .into()],
+                ..Default::default()
+            }
+            .into(),
+            SubMenu {
+                label: "LED Theme".to_string(),
+                submenu: vec![RadioGroup {
+                    selected: led_selected,
+                    select: Box::new(|tray: &mut Self, index| {
+                        tray.set_led_theme(index);
+                    }),
+                    options: led_options,
+                }
+                .into()],
                 ..Default::default()
             }
             .into(),
             MenuItem::Separator,
+        ];
+
+        // Only show "Open Web UI" if web server is enabled
+        if web_enabled {
+            items.push(
+                StandardItem {
+                    label: "Open Web UI".to_string(),
+                    activate: Box::new(|tray: &mut Self| {
+                        tray.open_web_ui();
+                    }),
+                    ..Default::default()
+                }
+                .into(),
+            );
+            items.push(MenuItem::Separator);
+        }
+
+        items.push(
             StandardItem {
                 label: "Quit Daemon".to_string(),
                 activate: Box::new(|tray: &mut Self| {
@@ -205,7 +393,9 @@ impl Tray for HT32PanelTray {
                 ..Default::default()
             }
             .into(),
-        ]
+        );
+
+        items
     }
 }
 
