@@ -718,7 +718,7 @@ impl AppState {
             .unwrap()
             .set_enabled(&face_name, complication_id, enabled);
         self.save_display_settings();
-        self.request_redraw();
+        *self.needs_redraw.write().unwrap() = true;
 
         info!(
             "Complication '{}' {} for face '{}'",
@@ -773,6 +773,7 @@ impl AppState {
             refresh_interval_ms: *self.refresh_interval_ms.read().unwrap(),
             network_interface: self.network_interface.read().unwrap().clone(),
             ip_display: self.ip_display.read().unwrap().to_string(),
+            complications: self.complications.read().unwrap().clone(),
         }
     }
 
