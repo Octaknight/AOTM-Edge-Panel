@@ -203,7 +203,6 @@ impl Face for ArcsFace {
                     "Format",
                     "Date display format",
                     vec![
-                        ComplicationChoice::new(date_formats::HIDDEN, "Hidden"),
                         ComplicationChoice::new(date_formats::ISO, "ISO (2024-01-15)"),
                         ComplicationChoice::new(date_formats::US, "US (01/15/2024)"),
                         ComplicationChoice::new(date_formats::EU, "EU (15/01/2024)"),
@@ -211,7 +210,7 @@ impl Face for ArcsFace {
                         ComplicationChoice::new(date_formats::LONG, "Long (January 15, 2024)"),
                         ComplicationChoice::new(date_formats::WEEKDAY, "Weekday (Mon, Jan 15)"),
                     ],
-                    date_formats::HIDDEN,
+                    date_formats::ISO,
                 )],
             ),
             Complication::with_options(
@@ -291,7 +290,7 @@ impl Face for ArcsFace {
                 complication_options::DATE_FORMAT,
             )
             .map(|s| s.as_str())
-            .unwrap_or(date_formats::HIDDEN);
+            .unwrap_or(date_formats::ISO);
 
         if portrait {
             let margin = 8;

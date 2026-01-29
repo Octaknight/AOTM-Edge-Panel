@@ -237,7 +237,6 @@ pub mod time_formats {
 
 /// Date format options.
 pub mod date_formats {
-    pub const HIDDEN: &str = "hidden";
     pub const ISO: &str = "iso"; // 2024-01-15
     pub const US: &str = "us"; // 01/15/2024
     pub const EU: &str = "eu"; // 15/01/2024
