@@ -85,10 +85,19 @@ trait Daemon1 {
     fn disable_complication(&self, complication_id: &str) -> zbus::Result<()>;
 
     /// Gets a complication option value.
-    fn get_complication_option(&self, complication_id: &str, option_id: &str) -> zbus::Result<String>;
+    fn get_complication_option(
+        &self,
+        complication_id: &str,
+        option_id: &str,
+    ) -> zbus::Result<String>;
 
     /// Sets a complication option value.
-    fn set_complication_option(&self, complication_id: &str, option_id: &str, value: &str) -> zbus::Result<()>;
+    fn set_complication_option(
+        &self,
+        complication_id: &str,
+        option_id: &str,
+        value: &str,
+    ) -> zbus::Result<()>;
 
     /// Returns the current framebuffer as PNG data.
     fn get_screen_png(&self) -> zbus::Result<Vec<u8>>;
@@ -368,7 +377,11 @@ impl DaemonClient {
     }
 
     /// Gets a complication option value.
-    pub async fn get_complication_option(&self, complication_id: &str, option_id: &str) -> Result<String> {
+    pub async fn get_complication_option(
+        &self,
+        complication_id: &str,
+        option_id: &str,
+    ) -> Result<String> {
         self.proxy
             .get_complication_option(complication_id, option_id)
             .await
@@ -376,7 +389,12 @@ impl DaemonClient {
     }
 
     /// Sets a complication option value.
-    pub async fn set_complication_option(&self, complication_id: &str, option_id: &str, value: &str) -> Result<()> {
+    pub async fn set_complication_option(
+        &self,
+        complication_id: &str,
+        option_id: &str,
+        value: &str,
+    ) -> Result<()> {
         self.proxy
             .set_complication_option(complication_id, option_id, value)
             .await

@@ -98,8 +98,13 @@ impl Canvas {
         let mut pb = PathBuilder::new();
         pb.push_circle(cx as f32, cy as f32, radius as f32);
         if let Some(path) = pb.finish() {
-            self.pixmap
-                .fill_path(&path, &paint, tiny_skia::FillRule::Winding, Transform::identity(), None);
+            self.pixmap.fill_path(
+                &path,
+                &paint,
+                tiny_skia::FillRule::Winding,
+                Transform::identity(),
+                None,
+            );
         }
     }
 

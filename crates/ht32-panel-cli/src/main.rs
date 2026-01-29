@@ -95,7 +95,7 @@ enum LcdCommands {
     },
     /// Set or show the current face
     Face {
-        /// Face name: ascii, professional (omit to show current)
+        /// Face name: arcs, ascii, digits, professional (omit to show current)
         face: Option<String>,
     },
     /// Set or show the refresh interval
@@ -392,12 +392,23 @@ async fn handle_complication(action: ComplicationCommands, client: &DaemonClient
             client.disable_complication(&id).await?;
             println!("Disabled complication: {}", id);
         }
-        ComplicationCommands::Get { complication, option } => {
-            let value = client.get_complication_option(&complication, &option).await?;
+        ComplicationCommands::Get {
+            complication,
+            option,
+        } => {
+            let value = client
+                .get_complication_option(&complication, &option)
+                .await?;
             println!("{}.{} = {}", complication, option, value);
         }
-        ComplicationCommands::Set { complication, option, value } => {
-            client.set_complication_option(&complication, &option, &value).await?;
+        ComplicationCommands::Set {
+            complication,
+            option,
+            value,
+        } => {
+            client
+                .set_complication_option(&complication, &option, &value)
+                .await?;
             println!("Set {}.{} = {}", complication, option, value);
         }
         ComplicationCommands::ListInterfaces => {

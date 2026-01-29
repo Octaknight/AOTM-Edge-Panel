@@ -11,7 +11,7 @@ use axum::{
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::faces::{ComplicationOptionType, complications, complication_options};
+use crate::faces::{complication_options, complications, ComplicationOptionType};
 use crate::state::AppState;
 use ht32_panel_hw::Orientation;
 
@@ -109,7 +109,10 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/face", get(face_get).post(face_set))
         .route("/led", get(led_get).post(led_set))
         .route("/theme", get(theme_get).post(theme_set))
-        .route("/complications", get(complications_get).post(complications_set))
+        .route(
+            "/complications",
+            get(complications_get).post(complications_set),
+        )
         .route("/complication-option", post(complication_option_set))
         .route("/preview", get(preview_get))
         .route("/refresh-interval", post(refresh_interval_set))
@@ -311,46 +314,63 @@ async fn complications_get(State(state): State<Arc<AppState>>) -> impl IntoRespo
     let complications: Vec<ComplicationItem> = available
         .into_iter()
         .map(|c| {
-            let options: Vec<ComplicationOptionItem> = c.options.iter().map(|opt| {
-                let current_value = state.get_complication_option(&c.id, &opt.id)
-                    .unwrap_or_else(|| opt.default_value.clone());
+            let options: Vec<ComplicationOptionItem> = c
+                .options
+                .iter()
+                .map(|opt| {
+                    let current_value = state
+                        .get_complication_option(&c.id, &opt.id)
+                        .unwrap_or_else(|| opt.default_value.clone());
 
-                let choices: Vec<ComplicationOptionChoice> = match &opt.option_type {
-                    ComplicationOptionType::Choice(choices) => {
-                        // For network interface, dynamically populate with available interfaces
-                        if c.id == complications::NETWORK && opt.id == complication_options::INTERFACE {
-                            let mut iface_choices = vec![
-                                ComplicationOptionChoice { value: "auto".to_string(), label: "Auto-detect".to_string() }
-                            ];
-                            for iface in &interfaces {
-                                iface_choices.push(ComplicationOptionChoice {
-                                    value: iface.clone(),
-                                    label: iface.clone(),
-                                });
+                    let choices: Vec<ComplicationOptionChoice> = match &opt.option_type {
+                        ComplicationOptionType::Choice(choices) => {
+                            // For network interface, dynamically populate with available interfaces
+                            if c.id == complications::NETWORK
+                                && opt.id == complication_options::INTERFACE
+                            {
+                                let mut iface_choices = vec![ComplicationOptionChoice {
+                                    value: "auto".to_string(),
+                                    label: "Auto-detect".to_string(),
+                                }];
+                                for iface in &interfaces {
+                                    iface_choices.push(ComplicationOptionChoice {
+                                        value: iface.clone(),
+                                        label: iface.clone(),
+                                    });
+                                }
+                                iface_choices
+                            } else {
+                                choices
+                                    .iter()
+                                    .map(|ch| ComplicationOptionChoice {
+                                        value: ch.value.clone(),
+                                        label: ch.label.clone(),
+                                    })
+                                    .collect()
                             }
-                            iface_choices
-                        } else {
-                            choices.iter().map(|ch| ComplicationOptionChoice {
-                                value: ch.value.clone(),
-                                label: ch.label.clone(),
-                            }).collect()
                         }
-                    }
-                    ComplicationOptionType::Boolean => {
-                        vec![
-                            ComplicationOptionChoice { value: "true".to_string(), label: "Yes".to_string() },
-                            ComplicationOptionChoice { value: "false".to_string(), label: "No".to_string() },
-                        ]
-                    }
-                };
+                        ComplicationOptionType::Boolean => {
+                            vec![
+                                ComplicationOptionChoice {
+                                    value: "true".to_string(),
+                                    label: "Yes".to_string(),
+                                },
+                                ComplicationOptionChoice {
+                                    value: "false".to_string(),
+                                    label: "No".to_string(),
+                                },
+                            ]
+                        }
+                    };
 
-                ComplicationOptionItem {
-                    id: opt.id.clone(),
-                    name: opt.name.clone(),
-                    current_value,
-                    choices,
-                }
-            }).collect();
+                    ComplicationOptionItem {
+                        id: opt.id.clone(),
+                        name: opt.name.clone(),
+                        current_value,
+                        choices,
+                    }
+                })
+                .collect();
 
             ComplicationItem {
                 enabled: enabled.contains(&c.id),
@@ -420,46 +440,63 @@ fn render_complications(state: &Arc<AppState>) -> Html<String> {
     let complications: Vec<ComplicationItem> = available
         .into_iter()
         .map(|c| {
-            let options: Vec<ComplicationOptionItem> = c.options.iter().map(|opt| {
-                let current_value = state.get_complication_option(&c.id, &opt.id)
-                    .unwrap_or_else(|| opt.default_value.clone());
+            let options: Vec<ComplicationOptionItem> = c
+                .options
+                .iter()
+                .map(|opt| {
+                    let current_value = state
+                        .get_complication_option(&c.id, &opt.id)
+                        .unwrap_or_else(|| opt.default_value.clone());
 
-                let choices: Vec<ComplicationOptionChoice> = match &opt.option_type {
-                    ComplicationOptionType::Choice(choices) => {
-                        // For network interface, dynamically populate with available interfaces
-                        if c.id == complications::NETWORK && opt.id == complication_options::INTERFACE {
-                            let mut iface_choices = vec![
-                                ComplicationOptionChoice { value: "auto".to_string(), label: "Auto-detect".to_string() }
-                            ];
-                            for iface in &interfaces {
-                                iface_choices.push(ComplicationOptionChoice {
-                                    value: iface.clone(),
-                                    label: iface.clone(),
-                                });
+                    let choices: Vec<ComplicationOptionChoice> = match &opt.option_type {
+                        ComplicationOptionType::Choice(choices) => {
+                            // For network interface, dynamically populate with available interfaces
+                            if c.id == complications::NETWORK
+                                && opt.id == complication_options::INTERFACE
+                            {
+                                let mut iface_choices = vec![ComplicationOptionChoice {
+                                    value: "auto".to_string(),
+                                    label: "Auto-detect".to_string(),
+                                }];
+                                for iface in &interfaces {
+                                    iface_choices.push(ComplicationOptionChoice {
+                                        value: iface.clone(),
+                                        label: iface.clone(),
+                                    });
+                                }
+                                iface_choices
+                            } else {
+                                choices
+                                    .iter()
+                                    .map(|ch| ComplicationOptionChoice {
+                                        value: ch.value.clone(),
+                                        label: ch.label.clone(),
+                                    })
+                                    .collect()
                             }
-                            iface_choices
-                        } else {
-                            choices.iter().map(|ch| ComplicationOptionChoice {
-                                value: ch.value.clone(),
-                                label: ch.label.clone(),
-                            }).collect()
                         }
-                    }
-                    ComplicationOptionType::Boolean => {
-                        vec![
-                            ComplicationOptionChoice { value: "true".to_string(), label: "Yes".to_string() },
-                            ComplicationOptionChoice { value: "false".to_string(), label: "No".to_string() },
-                        ]
-                    }
-                };
+                        ComplicationOptionType::Boolean => {
+                            vec![
+                                ComplicationOptionChoice {
+                                    value: "true".to_string(),
+                                    label: "Yes".to_string(),
+                                },
+                                ComplicationOptionChoice {
+                                    value: "false".to_string(),
+                                    label: "No".to_string(),
+                                },
+                            ]
+                        }
+                    };
 
-                ComplicationOptionItem {
-                    id: opt.id.clone(),
-                    name: opt.name.clone(),
-                    current_value,
-                    choices,
-                }
-            }).collect();
+                    ComplicationOptionItem {
+                        id: opt.id.clone(),
+                        name: opt.name.clone(),
+                        current_value,
+                        choices,
+                    }
+                })
+                .collect();
 
             ComplicationItem {
                 enabled: enabled_set.contains(&c.id),

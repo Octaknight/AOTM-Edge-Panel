@@ -305,12 +305,19 @@ impl AppState {
                 faces::complication_options::INTERFACE,
                 network_interface.clone(),
             );
-            info!("Migrated legacy network_interface setting: {}", network_interface);
+            info!(
+                "Migrated legacy network_interface setting: {}",
+                network_interface
+            );
         }
 
         // Get network interface from complications (or auto-detect)
         let network_interface_value = complications
-            .get_option(face.name(), faces::complications::NETWORK, faces::complication_options::INTERFACE)
+            .get_option(
+                face.name(),
+                faces::complications::NETWORK,
+                faces::complication_options::INTERFACE,
+            )
             .cloned();
 
         // Initialize sensors - use complication setting or auto-detect
@@ -517,7 +524,11 @@ impl AppState {
         let face_name = self.face.read().unwrap().name().to_string();
         let complications = self.complications.read().unwrap();
         complications
-            .get_option(&face_name, faces::complications::IP_ADDRESS, faces::complication_options::IP_TYPE)
+            .get_option(
+                &face_name,
+                faces::complications::IP_ADDRESS,
+                faces::complication_options::IP_TYPE,
+            )
             .and_then(|s| s.parse().ok())
             .unwrap_or(IpDisplayPreference::Ipv6Gua)
     }
@@ -527,8 +538,12 @@ impl AppState {
         let face_name = self.face.read().unwrap().name().to_string();
         let complications = self.complications.read().unwrap();
         complications
-            .get_option(&face_name, faces::complications::NETWORK, faces::complication_options::INTERFACE)
-            .filter(|s| s != "auto" && !s.is_empty())
+            .get_option(
+                &face_name,
+                faces::complications::NETWORK,
+                faces::complication_options::INTERFACE,
+            )
+            .filter(|s| *s != "auto" && !s.is_empty())
             .cloned()
     }
 
@@ -874,7 +889,11 @@ impl AppState {
     }
 
     /// Gets a complication option value.
-    pub fn get_complication_option(&self, complication_id: &str, option_id: &str) -> Option<String> {
+    pub fn get_complication_option(
+        &self,
+        complication_id: &str,
+        option_id: &str,
+    ) -> Option<String> {
         let face_name = self.face.read().unwrap().name().to_string();
         self.complications
             .read()
@@ -884,44 +903,78 @@ impl AppState {
     }
 
     /// Sets a complication option value.
-    pub fn set_complication_option(&self, complication_id: &str, option_id: &str, value: &str) -> anyhow::Result<()> {
+    pub fn set_complication_option(
+        &self,
+        complication_id: &str,
+        option_id: &str,
+        value: &str,
+    ) -> anyhow::Result<()> {
         let face_name = self.face.read().unwrap().name().to_string();
         let available = self.face.read().unwrap().available_complications();
 
         // Validate complication exists
-        let complication = available.iter().find(|c| c.id == complication_id)
-            .ok_or_else(|| anyhow::anyhow!("Unknown complication '{}' for face '{}'", complication_id, face_name))?;
+        let complication = available
+            .iter()
+            .find(|c| c.id == complication_id)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Unknown complication '{}' for face '{}'",
+                    complication_id,
+                    face_name
+                )
+            })?;
 
         // Validate option exists
-        let option = complication.options.iter().find(|o| o.id == option_id)
-            .ok_or_else(|| anyhow::anyhow!("Unknown option '{}' for complication '{}'", option_id, complication_id))?;
+        let option = complication
+            .options
+            .iter()
+            .find(|o| o.id == option_id)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Unknown option '{}' for complication '{}'",
+                    option_id,
+                    complication_id
+                )
+            })?;
 
         // Validate value if it's a choice type
         if let faces::ComplicationOptionType::Choice(choices) = &option.option_type {
             if !choices.iter().any(|c| c.value == value) {
                 // Special case: network interface can be any valid interface
-                if complication_id == faces::complications::NETWORK && option_id == faces::complication_options::INTERFACE {
+                if complication_id == faces::complications::NETWORK
+                    && option_id == faces::complication_options::INTERFACE
+                {
                     let interfaces = NetworkSensor::list_interfaces();
                     if value != "auto" && !interfaces.contains(&value.to_string()) {
                         return Err(anyhow::anyhow!(
                             "Unknown interface '{}'. Available: auto, {:?}",
-                            value, interfaces
+                            value,
+                            interfaces
                         ));
                     }
                 } else {
                     let valid_values: Vec<_> = choices.iter().map(|c| c.value.as_str()).collect();
                     return Err(anyhow::anyhow!(
                         "Invalid value '{}' for option '{}'. Valid values: {:?}",
-                        value, option_id, valid_values
+                        value,
+                        option_id,
+                        valid_values
                     ));
                 }
             }
         }
 
-        self.complications.write().unwrap().set_option(&face_name, complication_id, option_id, value.to_string());
+        self.complications.write().unwrap().set_option(
+            &face_name,
+            complication_id,
+            option_id,
+            value.to_string(),
+        );
 
         // Special handling for network interface changes
-        if complication_id == faces::complications::NETWORK && option_id == faces::complication_options::INTERFACE {
+        if complication_id == faces::complications::NETWORK
+            && option_id == faces::complication_options::INTERFACE
+        {
             let mut sensors = self.sensors.lock().unwrap();
             if value == "auto" || value.is_empty() {
                 sensors.network.set_auto();
@@ -932,7 +985,10 @@ impl AppState {
 
         self.save_display_settings();
         *self.needs_redraw.write().unwrap() = true;
-        info!("Complication option '{}.{}' set to '{}' for face '{}'", complication_id, option_id, value, face_name);
+        info!(
+            "Complication option '{}.{}' set to '{}' for face '{}'",
+            complication_id, option_id, value, face_name
+        );
         Ok(())
     }
 }

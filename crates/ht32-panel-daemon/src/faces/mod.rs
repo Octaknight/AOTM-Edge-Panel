@@ -147,7 +147,13 @@ pub struct ComplicationOption {
 
 impl ComplicationOption {
     /// Creates a new choice-based option.
-    pub fn choice(id: &str, name: &str, description: &str, choices: Vec<ComplicationChoice>, default: &str) -> Self {
+    pub fn choice(
+        id: &str,
+        name: &str,
+        description: &str,
+        choices: Vec<ComplicationChoice>,
+        default: &str,
+    ) -> Self {
         Self {
             id: id.to_string(),
             name: name.to_string(),
@@ -187,7 +193,13 @@ impl Complication {
     }
 
     /// Creates a new complication with options.
-    pub fn with_options(id: &str, name: &str, description: &str, default_enabled: bool, options: Vec<ComplicationOption>) -> Self {
+    pub fn with_options(
+        id: &str,
+        name: &str,
+        description: &str,
+        default_enabled: bool,
+        options: Vec<ComplicationOption>,
+    ) -> Self {
         Self {
             id: id.to_string(),
             name: name.to_string(),
@@ -226,12 +238,12 @@ pub mod time_formats {
 /// Date format options.
 pub mod date_formats {
     pub const HIDDEN: &str = "hidden";
-    pub const ISO: &str = "iso";           // 2024-01-15
-    pub const US: &str = "us";             // 01/15/2024
-    pub const EU: &str = "eu";             // 15/01/2024
-    pub const SHORT: &str = "short";       // Jan 15
-    pub const LONG: &str = "long";         // January 15, 2024
-    pub const WEEKDAY: &str = "weekday";   // Mon, Jan 15
+    pub const ISO: &str = "iso"; // 2024-01-15
+    pub const US: &str = "us"; // 01/15/2024
+    pub const EU: &str = "eu"; // 15/01/2024
+    pub const SHORT: &str = "short"; // Jan 15
+    pub const LONG: &str = "long"; // January 15, 2024
+    pub const WEEKDAY: &str = "weekday"; // Mon, Jan 15
 }
 
 /// Configuration for a single complication instance.
@@ -262,7 +274,10 @@ impl EnabledComplications {
     /// If the face has no explicit settings, returns the complication's default.
     pub fn is_enabled(&self, face: &str, complication_id: &str, default: bool) -> bool {
         if let Some(configs) = self.face_complications.get(face) {
-            configs.get(complication_id).map(|c| c.enabled).unwrap_or(default)
+            configs
+                .get(complication_id)
+                .map(|c| c.enabled)
+                .unwrap_or(default)
         } else {
             default
         }
@@ -270,13 +285,8 @@ impl EnabledComplications {
 
     /// Sets whether a complication is enabled for a face.
     pub fn set_enabled(&mut self, face: &str, complication_id: &str, enabled: bool) {
-        let face_map = self
-            .face_complications
-            .entry(face.to_string())
-            .or_default();
-        let config = face_map
-            .entry(complication_id.to_string())
-            .or_default();
+        let face_map = self.face_complications.entry(face.to_string()).or_default();
+        let config = face_map.entry(complication_id.to_string()).or_default();
         config.enabled = enabled;
     }
 
@@ -292,11 +302,14 @@ impl EnabledComplications {
                 };
                 // Initialize options with defaults
                 for opt in &comp.options {
-                    config.options.insert(opt.id.clone(), opt.default_value.clone());
+                    config
+                        .options
+                        .insert(opt.id.clone(), opt.default_value.clone());
                 }
                 configs.insert(comp.id.clone(), config);
             }
-            self.face_complications.insert(face_name.to_string(), configs);
+            self.face_complications
+                .insert(face_name.to_string(), configs);
         }
     }
 
@@ -315,7 +328,12 @@ impl EnabledComplications {
     }
 
     /// Gets an option value for a complication.
-    pub fn get_option(&self, face: &str, complication_id: &str, option_id: &str) -> Option<&String> {
+    pub fn get_option(
+        &self,
+        face: &str,
+        complication_id: &str,
+        option_id: &str,
+    ) -> Option<&String> {
         self.face_complications
             .get(face)
             .and_then(|configs| configs.get(complication_id))
@@ -323,14 +341,15 @@ impl EnabledComplications {
     }
 
     /// Sets an option value for a complication.
-    pub fn set_option(&mut self, face: &str, complication_id: &str, option_id: &str, value: String) {
-        let face_map = self
-            .face_complications
-            .entry(face.to_string())
-            .or_default();
-        let config = face_map
-            .entry(complication_id.to_string())
-            .or_default();
+    pub fn set_option(
+        &mut self,
+        face: &str,
+        complication_id: &str,
+        option_id: &str,
+        value: String,
+    ) {
+        let face_map = self.face_complications.entry(face.to_string()).or_default();
+        let config = face_map.entry(complication_id.to_string()).or_default();
         config.options.insert(option_id.to_string(), value);
     }
 

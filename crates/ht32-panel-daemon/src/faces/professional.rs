@@ -226,19 +226,25 @@ impl Face for ProfessionalFace {
         let mut y = margin;
 
         // Helper to check if a complication is enabled
-        let is_enabled = |id: &str| -> bool {
-            complications.is_enabled(self.name(), id, true)
-        };
+        let is_enabled = |id: &str| -> bool { complications.is_enabled(self.name(), id, true) };
 
         // Get time format option
         let time_format = complications
-            .get_option(self.name(), complications::TIME, complication_options::TIME_FORMAT)
+            .get_option(
+                self.name(),
+                complications::TIME,
+                complication_options::TIME_FORMAT,
+            )
             .map(|s| s.as_str())
             .unwrap_or(time_formats::DIGITAL_24H);
 
         // Get date format option
         let date_format = complications
-            .get_option(self.name(), complications::DATE, complication_options::DATE_FORMAT)
+            .get_option(
+                self.name(),
+                complications::DATE,
+                complication_options::DATE_FORMAT,
+            )
             .map(|s| s.as_str())
             .unwrap_or(date_formats::HIDDEN);
 

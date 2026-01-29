@@ -174,8 +174,18 @@ impl Face for AsciiFace {
                     "auto",
                 )],
             ),
-            Complication::new(complications::DISK_IO, "Disk I/O", "Display disk activity graph", true),
-            Complication::new(complications::CPU_TEMP, "CPU Temperature", "Display CPU temperature", true),
+            Complication::new(
+                complications::DISK_IO,
+                "Disk I/O",
+                "Display disk activity graph",
+                true,
+            ),
+            Complication::new(
+                complications::CPU_TEMP,
+                "CPU Temperature",
+                "Display CPU temperature",
+                true,
+            ),
         ]
     }
 
@@ -197,13 +207,21 @@ impl Face for AsciiFace {
 
         // Get time format option
         let time_format = complications
-            .get_option(self.name(), complications::TIME, complication_options::TIME_FORMAT)
+            .get_option(
+                self.name(),
+                complications::TIME,
+                complication_options::TIME_FORMAT,
+            )
             .map(|s| s.as_str())
             .unwrap_or(time_formats::DIGITAL_24H);
 
         // Get date format option
         let date_format = complications
-            .get_option(self.name(), complications::DATE, complication_options::DATE_FORMAT)
+            .get_option(
+                self.name(),
+                complications::DATE,
+                complication_options::DATE_FORMAT,
+            )
             .map(|s| s.as_str())
             .unwrap_or(date_formats::HIDDEN);
 
@@ -216,7 +234,13 @@ impl Face for AsciiFace {
             if is_enabled(complications::TIME) && time_format != time_formats::ANALOGUE {
                 let time_str = data.format_time(time_format);
                 let time_width = canvas.text_width(&time_str, FONT_LARGE);
-                canvas.draw_text(width as i32 - margin - time_width, y, &time_str, FONT_LARGE, colors.text);
+                canvas.draw_text(
+                    width as i32 - margin - time_width,
+                    y,
+                    &time_str,
+                    FONT_LARGE,
+                    colors.text,
+                );
             }
             y += canvas.line_height(FONT_LARGE) + 2;
 
@@ -280,10 +304,24 @@ impl Face for AsciiFace {
             if is_enabled(complications::DISK_IO) {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
-                canvas.draw_text(margin, y, &format!("DSK R:{} W:{}", disk_r, disk_w), FONT_SMALL, colors.text);
+                canvas.draw_text(
+                    margin,
+                    y,
+                    &format!("DSK R:{} W:{}", disk_r, disk_w),
+                    FONT_SMALL,
+                    colors.text,
+                );
                 y += canvas.line_height(FONT_SMALL) + 1;
-                canvas.draw_graph(margin, y, width - (margin * 2) as u32, GRAPH_HEIGHT, &data.disk_history,
-                    SystemData::compute_graph_scale(&data.disk_history), colors.bar_disk, colors.bar_bg);
+                canvas.draw_graph(
+                    margin,
+                    y,
+                    width - (margin * 2) as u32,
+                    GRAPH_HEIGHT,
+                    &data.disk_history,
+                    SystemData::compute_graph_scale(&data.disk_history),
+                    colors.bar_disk,
+                    colors.bar_bg,
+                );
                 y += GRAPH_HEIGHT as i32 + 4;
             }
 
@@ -291,10 +329,24 @@ impl Face for AsciiFace {
             if is_enabled(complications::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
-                canvas.draw_text(margin, y, &format!("NET D:{} U:{}", net_rx, net_tx), FONT_SMALL, colors.text);
+                canvas.draw_text(
+                    margin,
+                    y,
+                    &format!("NET D:{} U:{}", net_rx, net_tx),
+                    FONT_SMALL,
+                    colors.text,
+                );
                 y += canvas.line_height(FONT_SMALL) + 1;
-                canvas.draw_graph(margin, y, width - (margin * 2) as u32, GRAPH_HEIGHT, &data.net_history,
-                    SystemData::compute_graph_scale(&data.net_history), colors.bar_net, colors.bar_bg);
+                canvas.draw_graph(
+                    margin,
+                    y,
+                    width - (margin * 2) as u32,
+                    GRAPH_HEIGHT,
+                    &data.net_history,
+                    SystemData::compute_graph_scale(&data.net_history),
+                    colors.bar_net,
+                    colors.bar_bg,
+                );
             }
         } else {
             // Landscape layout
@@ -305,7 +357,13 @@ impl Face for AsciiFace {
             if is_enabled(complications::TIME) && time_format != time_formats::ANALOGUE {
                 let time_str = data.format_time(time_format);
                 let time_width = canvas.text_width(&time_str, FONT_LARGE);
-                canvas.draw_text(width as i32 - margin - time_width, y, &time_str, FONT_LARGE, colors.text);
+                canvas.draw_text(
+                    width as i32 - margin - time_width,
+                    y,
+                    &time_str,
+                    FONT_LARGE,
+                    colors.text,
+                );
             }
             y += canvas.line_height(FONT_LARGE) + 2;
 
@@ -357,10 +415,24 @@ impl Face for AsciiFace {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 canvas.draw_text(margin, y, "DSK", FONT_NORMAL, colors.text);
-                canvas.draw_text(margin + 40, y, &format!("R:{} W:{}", disk_r, disk_w), FONT_NORMAL, colors.dim);
+                canvas.draw_text(
+                    margin + 40,
+                    y,
+                    &format!("R:{} W:{}", disk_r, disk_w),
+                    FONT_NORMAL,
+                    colors.dim,
+                );
                 y += canvas.line_height(FONT_NORMAL) + 1;
-                canvas.draw_graph(margin, y, width - (margin * 2) as u32, GRAPH_HEIGHT, &data.disk_history,
-                    SystemData::compute_graph_scale(&data.disk_history), colors.bar_disk, colors.bar_bg);
+                canvas.draw_graph(
+                    margin,
+                    y,
+                    width - (margin * 2) as u32,
+                    GRAPH_HEIGHT,
+                    &data.disk_history,
+                    SystemData::compute_graph_scale(&data.disk_history),
+                    colors.bar_disk,
+                    colors.bar_bg,
+                );
                 y += GRAPH_HEIGHT as i32 + 3;
             }
 
@@ -369,10 +441,24 @@ impl Face for AsciiFace {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 canvas.draw_text(margin, y, "NET", FONT_NORMAL, colors.text);
-                canvas.draw_text(margin + 40, y, &format!("D:{} U:{}", net_rx, net_tx), FONT_NORMAL, colors.dim);
+                canvas.draw_text(
+                    margin + 40,
+                    y,
+                    &format!("D:{} U:{}", net_rx, net_tx),
+                    FONT_NORMAL,
+                    colors.dim,
+                );
                 y += canvas.line_height(FONT_NORMAL) + 1;
-                canvas.draw_graph(margin, y, width - (margin * 2) as u32, GRAPH_HEIGHT, &data.net_history,
-                    SystemData::compute_graph_scale(&data.net_history), colors.bar_net, colors.bar_bg);
+                canvas.draw_graph(
+                    margin,
+                    y,
+                    width - (margin * 2) as u32,
+                    GRAPH_HEIGHT,
+                    &data.net_history,
+                    SystemData::compute_graph_scale(&data.net_history),
+                    colors.bar_net,
+                    colors.bar_bg,
+                );
             }
         }
         let _ = y;

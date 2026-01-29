@@ -372,22 +372,38 @@ impl Daemon1Interface {
     }
 
     /// Gets a complication option value.
-    fn get_complication_option(&self, complication_id: &str, option_id: &str) -> zbus::fdo::Result<String> {
+    fn get_complication_option(
+        &self,
+        complication_id: &str,
+        option_id: &str,
+    ) -> zbus::fdo::Result<String> {
         self.state
             .get_complication_option(complication_id, option_id)
-            .ok_or_else(|| zbus::fdo::Error::InvalidArgs(format!(
-                "Unknown option '{}' for complication '{}'",
-                option_id, complication_id
-            )))
+            .ok_or_else(|| {
+                zbus::fdo::Error::InvalidArgs(format!(
+                    "Unknown option '{}' for complication '{}'",
+                    option_id, complication_id
+                ))
+            })
     }
 
     /// Sets a complication option value.
-    fn set_complication_option(&self, complication_id: &str, option_id: &str, value: &str) -> zbus::fdo::Result<()> {
+    fn set_complication_option(
+        &self,
+        complication_id: &str,
+        option_id: &str,
+        value: &str,
+    ) -> zbus::fdo::Result<()> {
         self.state
             .set_complication_option(complication_id, option_id, value)
             .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
-        let _ = self.signal_tx.send(DaemonSignals::ComplicationOptionChanged);
-        debug!("D-Bus: SetComplicationOption({}, {}, {})", complication_id, option_id, value);
+        let _ = self
+            .signal_tx
+            .send(DaemonSignals::ComplicationOptionChanged);
+        debug!(
+            "D-Bus: SetComplicationOption({}, {}, {})",
+            complication_id, option_id, value
+        );
         Ok(())
     }
 }

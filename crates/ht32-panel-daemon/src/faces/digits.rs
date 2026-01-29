@@ -165,8 +165,18 @@ impl Face for DigitsFace {
                     "auto",
                 )],
             ),
-            Complication::new(complications::DISK_IO, "Disk I/O", "Display disk read/write rates", true),
-            Complication::new(complications::CPU_TEMP, "CPU Temperature", "Display CPU temperature", true),
+            Complication::new(
+                complications::DISK_IO,
+                "Disk I/O",
+                "Display disk read/write rates",
+                true,
+            ),
+            Complication::new(
+                complications::CPU_TEMP,
+                "CPU Temperature",
+                "Display CPU temperature",
+                true,
+            ),
         ]
     }
 
@@ -187,13 +197,21 @@ impl Face for DigitsFace {
 
         // Get time format option
         let time_format = comp
-            .get_option(self.name(), complications::TIME, complication_options::TIME_FORMAT)
+            .get_option(
+                self.name(),
+                complications::TIME,
+                complication_options::TIME_FORMAT,
+            )
             .map(|s| s.as_str())
             .unwrap_or(time_formats::DIGITAL_24H);
 
         // Get date format option
         let date_format = comp
-            .get_option(self.name(), complications::DATE, complication_options::DATE_FORMAT)
+            .get_option(
+                self.name(),
+                complications::DATE,
+                complication_options::DATE_FORMAT,
+            )
             .map(|s| s.as_str())
             .unwrap_or(date_formats::HIDDEN);
 
@@ -229,10 +247,24 @@ impl Face for DigitsFace {
             // Base elements: CPU and RAM (always shown)
             Self::draw_divider(canvas, y, width, margin, colors.divider);
             y += 6;
-            Self::draw_segment_value(canvas, margin, y, "CPU",
-                &format!("{:2.0}%", data.cpu_percent), colors.label, colors.segment_on);
-            Self::draw_segment_value(canvas, margin + col_width + margin, y, "RAM",
-                &format!("{:2.0}%", data.ram_percent), colors.label, colors.segment_on);
+            Self::draw_segment_value(
+                canvas,
+                margin,
+                y,
+                "CPU",
+                &format!("{:2.0}%", data.cpu_percent),
+                colors.label,
+                colors.segment_on,
+            );
+            Self::draw_segment_value(
+                canvas,
+                margin + col_width + margin,
+                y,
+                "RAM",
+                &format!("{:2.0}%", data.ram_percent),
+                colors.label,
+                colors.segment_on,
+            );
             y += 32;
 
             // Complication: Disk I/O
@@ -241,8 +273,24 @@ impl Face for DigitsFace {
                 y += 6;
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
-                Self::draw_segment_value(canvas, margin, y, "DSK R", &disk_r, colors.label, colors.segment_on);
-                Self::draw_segment_value(canvas, margin + col_width + margin, y, "DSK W", &disk_w, colors.label, colors.segment_on);
+                Self::draw_segment_value(
+                    canvas,
+                    margin,
+                    y,
+                    "DSK R",
+                    &disk_r,
+                    colors.label,
+                    colors.segment_on,
+                );
+                Self::draw_segment_value(
+                    canvas,
+                    margin + col_width + margin,
+                    y,
+                    "DSK W",
+                    &disk_w,
+                    colors.label,
+                    colors.segment_on,
+                );
                 y += 32;
             }
 
@@ -250,8 +298,24 @@ impl Face for DigitsFace {
             if is_on(complications::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
-                Self::draw_segment_value(canvas, margin, y, "NET \u{2193}", &net_rx, colors.label, colors.segment_on);
-                Self::draw_segment_value(canvas, margin + col_width + margin, y, "NET \u{2191}", &net_tx, colors.label, colors.segment_on);
+                Self::draw_segment_value(
+                    canvas,
+                    margin,
+                    y,
+                    "NET \u{2193}",
+                    &net_rx,
+                    colors.label,
+                    colors.segment_on,
+                );
+                Self::draw_segment_value(
+                    canvas,
+                    margin + col_width + margin,
+                    y,
+                    "NET \u{2191}",
+                    &net_tx,
+                    colors.label,
+                    colors.segment_on,
+                );
                 y += 32;
             }
 
@@ -260,7 +324,13 @@ impl Face for DigitsFace {
             y += 6;
 
             // Base element: Uptime (always shown)
-            canvas.draw_text(margin, y, &format!("UP {}", data.uptime), FONT_SMALL, colors.label);
+            canvas.draw_text(
+                margin,
+                y,
+                &format!("UP {}", data.uptime),
+                FONT_SMALL,
+                colors.label,
+            );
             y += canvas.line_height(FONT_SMALL) + 2;
 
             // Complication: IP address
@@ -285,21 +355,45 @@ impl Face for DigitsFace {
 
             // Complication: Date (right side, below hostname if shown)
             let host_width = canvas.text_width(&data.hostname, FONT_SMALL);
-            canvas.draw_text(width as i32 - margin - host_width, y + 8, &data.hostname, FONT_SMALL, colors.label);
+            canvas.draw_text(
+                width as i32 - margin - host_width,
+                y + 8,
+                &data.hostname,
+                FONT_SMALL,
+                colors.label,
+            );
 
             if is_on(complications::DATE) {
                 if let Some(date_str) = data.format_date(date_format) {
                     let date_width = canvas.text_width(&date_str, FONT_SMALL);
-                    canvas.draw_text(width as i32 - margin - date_width, y + 22, &date_str, FONT_SMALL, colors.label);
+                    canvas.draw_text(
+                        width as i32 - margin - date_width,
+                        y + 22,
+                        &date_str,
+                        FONT_SMALL,
+                        colors.label,
+                    );
                 } else {
                     let uptime_text = format!("UP {}", data.uptime);
                     let uptime_width = canvas.text_width(&uptime_text, FONT_SMALL);
-                    canvas.draw_text(width as i32 - margin - uptime_width, y + 22, &uptime_text, FONT_SMALL, colors.label);
+                    canvas.draw_text(
+                        width as i32 - margin - uptime_width,
+                        y + 22,
+                        &uptime_text,
+                        FONT_SMALL,
+                        colors.label,
+                    );
                 }
             } else {
                 let uptime_text = format!("UP {}", data.uptime);
                 let uptime_width = canvas.text_width(&uptime_text, FONT_SMALL);
-                canvas.draw_text(width as i32 - margin - uptime_width, y + 22, &uptime_text, FONT_SMALL, colors.label);
+                canvas.draw_text(
+                    width as i32 - margin - uptime_width,
+                    y + 22,
+                    &uptime_text,
+                    FONT_SMALL,
+                    colors.label,
+                );
             }
             y += canvas.line_height(FONT_TIME) + 6;
 
@@ -309,15 +403,36 @@ impl Face for DigitsFace {
             let col_width = (width as i32 - margin * 5) / 4;
 
             // Row 1: CPU (base), RAM (base), Temp (complication)
-            Self::draw_segment_value(canvas, margin, y, "CPU",
-                &format!("{:2.0}%", data.cpu_percent), colors.label, colors.segment_on);
-            Self::draw_segment_value(canvas, margin + col_width + margin, y, "RAM",
-                &format!("{:2.0}%", data.ram_percent), colors.label, colors.segment_on);
+            Self::draw_segment_value(
+                canvas,
+                margin,
+                y,
+                "CPU",
+                &format!("{:2.0}%", data.cpu_percent),
+                colors.label,
+                colors.segment_on,
+            );
+            Self::draw_segment_value(
+                canvas,
+                margin + col_width + margin,
+                y,
+                "RAM",
+                &format!("{:2.0}%", data.ram_percent),
+                colors.label,
+                colors.segment_on,
+            );
             // Complication: CPU temperature
             if is_on(complications::CPU_TEMP) {
                 if let Some(temp) = data.cpu_temp {
-                    Self::draw_segment_value(canvas, margin + (col_width + margin) * 2, y, "TEMP",
-                        &format!("{:.0}°", temp), colors.label, colors.segment_on);
+                    Self::draw_segment_value(
+                        canvas,
+                        margin + (col_width + margin) * 2,
+                        y,
+                        "TEMP",
+                        &format!("{:.0}°", temp),
+                        colors.label,
+                        colors.segment_on,
+                    );
                 }
             }
             y += 34;
@@ -329,14 +444,46 @@ impl Face for DigitsFace {
             if is_on(complications::DISK_IO) {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
-                Self::draw_segment_value(canvas, margin, y, "DSK R", &disk_r, colors.label, colors.segment_on);
-                Self::draw_segment_value(canvas, margin + col_width + margin, y, "DSK W", &disk_w, colors.label, colors.segment_on);
+                Self::draw_segment_value(
+                    canvas,
+                    margin,
+                    y,
+                    "DSK R",
+                    &disk_r,
+                    colors.label,
+                    colors.segment_on,
+                );
+                Self::draw_segment_value(
+                    canvas,
+                    margin + col_width + margin,
+                    y,
+                    "DSK W",
+                    &disk_w,
+                    colors.label,
+                    colors.segment_on,
+                );
             }
             if is_on(complications::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
-                Self::draw_segment_value(canvas, margin + (col_width + margin) * 2, y, "NET \u{2193}", &net_rx, colors.label, colors.segment_on);
-                Self::draw_segment_value(canvas, margin + (col_width + margin) * 3, y, "NET \u{2191}", &net_tx, colors.label, colors.segment_on);
+                Self::draw_segment_value(
+                    canvas,
+                    margin + (col_width + margin) * 2,
+                    y,
+                    "NET \u{2193}",
+                    &net_rx,
+                    colors.label,
+                    colors.segment_on,
+                );
+                Self::draw_segment_value(
+                    canvas,
+                    margin + (col_width + margin) * 3,
+                    y,
+                    "NET \u{2191}",
+                    &net_tx,
+                    colors.label,
+                    colors.segment_on,
+                );
             }
             y += 34;
 

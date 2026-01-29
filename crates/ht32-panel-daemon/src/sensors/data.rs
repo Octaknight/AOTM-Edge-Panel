@@ -139,12 +139,21 @@ impl SystemData {
     /// Formats date according to the specified format.
     pub fn format_date(&self, format: &str) -> Option<String> {
         let month_names = [
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
         ];
         let month_abbrev = [
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
         ];
         let weekday_abbrev = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -153,12 +162,27 @@ impl SystemData {
 
         match format {
             "hidden" => None,
-            "iso" => Some(format!("{:04}-{:02}-{:02}", self.year, self.month, self.day)),
-            "us" => Some(format!("{:02}/{:02}/{:04}", self.month, self.day, self.year)),
-            "eu" => Some(format!("{:02}/{:02}/{:04}", self.day, self.month, self.year)),
+            "iso" => Some(format!(
+                "{:04}-{:02}-{:02}",
+                self.year, self.month, self.day
+            )),
+            "us" => Some(format!(
+                "{:02}/{:02}/{:04}",
+                self.month, self.day, self.year
+            )),
+            "eu" => Some(format!(
+                "{:02}/{:02}/{:04}",
+                self.day, self.month, self.year
+            )),
             "short" => Some(format!("{} {}", month_abbrev[month_idx], self.day)),
-            "long" => Some(format!("{} {}, {}", month_names[month_idx], self.day, self.year)),
-            "weekday" => Some(format!("{}, {} {}", weekday_abbrev[weekday_idx], month_abbrev[month_idx], self.day)),
+            "long" => Some(format!(
+                "{} {}, {}",
+                month_names[month_idx], self.day, self.year
+            )),
+            "weekday" => Some(format!(
+                "{}, {} {}",
+                weekday_abbrev[weekday_idx], month_abbrev[month_idx], self.day
+            )),
             _ => None,
         }
     }
@@ -197,10 +221,7 @@ impl SystemData {
     pub fn compute_graph_scale(history: &VecDeque<f64>) -> f64 {
         const MIN_SCALE: f64 = 1_000_000.0; // 1 MB/s minimum
 
-        let max_val = history
-            .iter()
-            .copied()
-            .fold(0.0_f64, |a, b| a.max(b));
+        let max_val = history.iter().copied().fold(0.0_f64, |a, b| a.max(b));
 
         if max_val <= MIN_SCALE {
             return MIN_SCALE;

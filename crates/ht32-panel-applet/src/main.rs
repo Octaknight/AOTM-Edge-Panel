@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
                             let mut s = cmd_state.lock().unwrap();
                             s.refresh_interval = rate;
                         }
-                        if let Ok(iface) = c.get_network_interface().await {
+                        if let Ok(iface) = c.get_complication_option("network", "interface").await {
                             let mut s = cmd_state.lock().unwrap();
                             s.network_interface = iface;
                         }
@@ -159,7 +159,7 @@ async fn main() -> Result<()> {
                         }
                         Some(TrayCommand::SetNetworkInterface(interface)) => {
                             if let Some(ref c) = client {
-                                match c.set_network_interface(&interface).await {
+                                match c.set_complication_option("network", "interface", &interface).await {
                                     Ok(()) => {
                                         let mut s = cmd_state.lock().unwrap();
                                         s.network_interface = if interface == "auto" {
