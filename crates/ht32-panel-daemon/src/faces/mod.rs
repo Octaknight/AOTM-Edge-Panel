@@ -19,7 +19,7 @@ pub use professional::ProfessionalFace;
 use crate::rendering::Canvas;
 use crate::sensors::data::SystemData;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Color theme for face rendering.
 #[derive(Debug, Clone, Copy)]
@@ -102,8 +102,64 @@ pub fn available_themes() -> Vec<&'static str> {
     ]
 }
 
+/// Type of complication option value.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ComplicationOptionType {
+    /// A choice from a list of values.
+    Choice(Vec<ComplicationChoice>),
+    /// A boolean toggle.
+    Boolean,
+}
+
+/// A choice value for a complication option.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ComplicationChoice {
+    /// The stored value.
+    pub value: String,
+    /// Human-readable label.
+    pub label: String,
+}
+
+impl ComplicationChoice {
+    /// Creates a new choice.
+    pub fn new(value: &str, label: &str) -> Self {
+        Self {
+            value: value.to_string(),
+            label: label.to_string(),
+        }
+    }
+}
+
+/// An option that can be configured for a complication.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ComplicationOption {
+    /// Unique identifier for this option.
+    pub id: String,
+    /// Human-readable name.
+    pub name: String,
+    /// Description of what this option controls.
+    pub description: String,
+    /// The type of this option (choice or boolean).
+    pub option_type: ComplicationOptionType,
+    /// Default value for this option.
+    pub default_value: String,
+}
+
+impl ComplicationOption {
+    /// Creates a new choice-based option.
+    pub fn choice(id: &str, name: &str, description: &str, choices: Vec<ComplicationChoice>, default: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            name: name.to_string(),
+            description: description.to_string(),
+            option_type: ComplicationOptionType::Choice(choices),
+            default_value: default.to_string(),
+        }
+    }
+}
+
 /// A complication is an optional display element that can be enabled or disabled.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Complication {
     /// Unique identifier for this complication.
     pub id: String,
@@ -113,39 +169,87 @@ pub struct Complication {
     pub description: String,
     /// Whether this complication is enabled by default.
     pub default_enabled: bool,
+    /// Configuration options for this complication.
+    #[serde(default)]
+    pub options: Vec<ComplicationOption>,
 }
 
 impl Complication {
-    /// Creates a new complication.
+    /// Creates a new complication without options.
     pub fn new(id: &str, name: &str, description: &str, default_enabled: bool) -> Self {
         Self {
             id: id.to_string(),
             name: name.to_string(),
             description: description.to_string(),
             default_enabled,
+            options: Vec::new(),
+        }
+    }
+
+    /// Creates a new complication with options.
+    pub fn with_options(id: &str, name: &str, description: &str, default_enabled: bool, options: Vec<ComplicationOption>) -> Self {
+        Self {
+            id: id.to_string(),
+            name: name.to_string(),
+            description: description.to_string(),
+            default_enabled,
+            options,
         }
     }
 }
 
 /// Standard complication IDs used across faces.
 pub mod complications {
+    pub const TIME: &str = "time";
+    pub const DATE: &str = "date";
     pub const NETWORK: &str = "network";
     pub const DISK_IO: &str = "disk_io";
     pub const CPU_TEMP: &str = "cpu_temp";
     pub const IP_ADDRESS: &str = "ip_address";
-    pub const UPTIME: &str = "uptime";
-    pub const HOSTNAME: &str = "hostname";
-    pub const TIME: &str = "time";
-    pub const CPU: &str = "cpu";
-    pub const RAM: &str = "ram";
 }
 
-/// Set of enabled complications for rendering.
+/// Standard complication option IDs.
+pub mod complication_options {
+    pub const TIME_FORMAT: &str = "format";
+    pub const DATE_FORMAT: &str = "format";
+    pub const IP_TYPE: &str = "ip_type";
+    pub const INTERFACE: &str = "interface";
+}
+
+/// Time format options.
+pub mod time_formats {
+    pub const DIGITAL_24H: &str = "digital-24h";
+    pub const DIGITAL_12H: &str = "digital-12h";
+    pub const ANALOGUE: &str = "analogue";
+}
+
+/// Date format options.
+pub mod date_formats {
+    pub const HIDDEN: &str = "hidden";
+    pub const ISO: &str = "iso";           // 2024-01-15
+    pub const US: &str = "us";             // 01/15/2024
+    pub const EU: &str = "eu";             // 15/01/2024
+    pub const SHORT: &str = "short";       // Jan 15
+    pub const LONG: &str = "long";         // January 15, 2024
+    pub const WEEKDAY: &str = "weekday";   // Mon, Jan 15
+}
+
+/// Configuration for a single complication instance.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ComplicationConfig {
+    /// Whether this complication is enabled.
+    pub enabled: bool,
+    /// Option values for this complication.
+    #[serde(default)]
+    pub options: HashMap<String, String>,
+}
+
+/// Set of enabled complications with their configurations.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EnabledComplications {
-    /// Map of face name to set of enabled complication IDs.
+    /// Map of face name to map of complication ID to configuration.
     #[serde(default)]
-    face_complications: HashMap<String, HashSet<String>>,
+    face_complications: HashMap<String, HashMap<String, ComplicationConfig>>,
 }
 
 impl EnabledComplications {
@@ -157,8 +261,8 @@ impl EnabledComplications {
     /// Checks if a complication is enabled for a face.
     /// If the face has no explicit settings, returns the complication's default.
     pub fn is_enabled(&self, face: &str, complication_id: &str, default: bool) -> bool {
-        if let Some(enabled) = self.face_complications.get(face) {
-            enabled.contains(complication_id)
+        if let Some(configs) = self.face_complications.get(face) {
+            configs.get(complication_id).map(|c| c.enabled).unwrap_or(default)
         } else {
             default
         }
@@ -166,42 +270,75 @@ impl EnabledComplications {
 
     /// Sets whether a complication is enabled for a face.
     pub fn set_enabled(&mut self, face: &str, complication_id: &str, enabled: bool) {
-        let face_set = self
+        let face_map = self
             .face_complications
             .entry(face.to_string())
             .or_default();
-        if enabled {
-            face_set.insert(complication_id.to_string());
-        } else {
-            face_set.remove(complication_id);
-        }
+        let config = face_map
+            .entry(complication_id.to_string())
+            .or_default();
+        config.enabled = enabled;
     }
 
     /// Initializes complications for a face from its defaults.
     pub fn init_from_defaults(&mut self, face: &dyn Face) {
         let face_name = face.name();
         if !self.face_complications.contains_key(face_name) {
-            let mut enabled = HashSet::new();
+            let mut configs = HashMap::new();
             for comp in face.available_complications() {
-                if comp.default_enabled {
-                    enabled.insert(comp.id.clone());
+                let mut config = ComplicationConfig {
+                    enabled: comp.default_enabled,
+                    options: HashMap::new(),
+                };
+                // Initialize options with defaults
+                for opt in &comp.options {
+                    config.options.insert(opt.id.clone(), opt.default_value.clone());
                 }
+                configs.insert(comp.id.clone(), config);
             }
-            self.face_complications.insert(face_name.to_string(), enabled);
+            self.face_complications.insert(face_name.to_string(), configs);
         }
     }
 
     /// Gets all enabled complication IDs for a face.
-    pub fn get_enabled(&self, face: &str) -> HashSet<String> {
+    pub fn get_enabled(&self, face: &str) -> std::collections::HashSet<String> {
         self.face_complications
             .get(face)
-            .cloned()
+            .map(|configs| {
+                configs
+                    .iter()
+                    .filter(|(_, c)| c.enabled)
+                    .map(|(id, _)| id.clone())
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
-    /// Sets all enabled complications for a face at once.
-    pub fn set_all(&mut self, face: &str, enabled: HashSet<String>) {
-        self.face_complications.insert(face.to_string(), enabled);
+    /// Gets an option value for a complication.
+    pub fn get_option(&self, face: &str, complication_id: &str, option_id: &str) -> Option<&String> {
+        self.face_complications
+            .get(face)
+            .and_then(|configs| configs.get(complication_id))
+            .and_then(|config| config.options.get(option_id))
+    }
+
+    /// Sets an option value for a complication.
+    pub fn set_option(&mut self, face: &str, complication_id: &str, option_id: &str, value: String) {
+        let face_map = self
+            .face_complications
+            .entry(face.to_string())
+            .or_default();
+        let config = face_map
+            .entry(complication_id.to_string())
+            .or_default();
+        config.options.insert(option_id.to_string(), value);
+    }
+
+    /// Gets the full configuration for a complication.
+    pub fn get_config(&self, face: &str, complication_id: &str) -> Option<&ComplicationConfig> {
+        self.face_complications
+            .get(face)
+            .and_then(|configs| configs.get(complication_id))
     }
 }
 

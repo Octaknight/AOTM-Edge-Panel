@@ -52,21 +52,17 @@ pub struct DisplaySettings {
     #[serde(default = "default_refresh_interval")]
     pub refresh_interval_ms: u32,
 
-    /// Network interface to monitor (None = auto-detect).
-    #[serde(default)]
+    /// Network interface to monitor (legacy - migrated to complications).
+    #[serde(default, skip_serializing)]
     pub network_interface: Option<String>,
 
-    /// IP address display preference.
-    #[serde(default = "default_ip_display")]
-    pub ip_display: String,
+    /// IP address display preference (legacy - migrated to complications).
+    #[serde(default, skip_serializing)]
+    pub ip_display: Option<String>,
 
     /// Enabled complications per face.
     #[serde(default)]
     pub complications: EnabledComplications,
-}
-
-fn default_ip_display() -> String {
-    "ipv6-gua".to_string()
 }
 
 fn default_face() -> String {
@@ -100,7 +96,7 @@ impl Default for DisplaySettings {
             led_speed: default_led_value(),
             refresh_interval_ms: default_refresh_interval(),
             network_interface: None,
-            ip_display: default_ip_display(),
+            ip_display: None,
             complications: EnabledComplications::new(),
         }
     }
@@ -156,9 +152,18 @@ impl Sensors {
             IpDisplayPreference::Ipv4 => self.network.ipv4_address(),
         };
 
+        // Get time components
+        let (hour, minute, day, month, year, day_of_week, _) = self.system.time_components();
+
         SystemData {
             hostname: self.system.hostname(),
             time: self.system.time(),
+            hour,
+            minute,
+            day,
+            month,
+            year,
+            day_of_week,
             uptime: self.system.uptime(),
             cpu_percent,
             cpu_temp,
@@ -221,13 +226,7 @@ pub struct AppState {
     /// Refresh interval in milliseconds (1500-10000)
     refresh_interval_ms: RwLock<u32>,
 
-    /// Network interface to monitor (None = auto-detect)
-    network_interface: RwLock<Option<String>>,
-
-    /// IP address display preference
-    ip_display: RwLock<IpDisplayPreference>,
-
-    /// Enabled complications per face
+    /// Enabled complications per face (with options)
     complications: RwLock<EnabledComplications>,
 }
 
@@ -271,13 +270,6 @@ impl AppState {
         let mut canvas = Canvas::new(canvas_w as u32, canvas_h as u32);
         let framebuffer = Framebuffer::new();
 
-        // Initialize sensors - use saved settings or auto-detect
-        let network_interface = settings.network_interface.clone();
-        let sensors = match network_interface.as_ref() {
-            Some(iface) => Sensors::new(iface),
-            None => Sensors::new_auto(),
-        };
-
         // Load face from settings
         let face = faces::create_face(&settings.face).unwrap_or_else(|| {
             warn!(
@@ -288,22 +280,51 @@ impl AppState {
         });
         info!("Using display face: {}", face.name());
 
+        // Initialize complications from settings and migrate legacy settings
+        let mut complications = settings.complications.clone();
+        complications.init_from_defaults(face.as_ref());
+
+        // Migrate legacy ip_display setting to complication option
+        if let Some(ref ip_display) = settings.ip_display {
+            let face_name = face.name();
+            complications.set_option(
+                face_name,
+                faces::complications::IP_ADDRESS,
+                faces::complication_options::IP_TYPE,
+                ip_display.clone(),
+            );
+            info!("Migrated legacy ip_display setting: {}", ip_display);
+        }
+
+        // Migrate legacy network_interface setting to complication option
+        if let Some(ref network_interface) = settings.network_interface {
+            let face_name = face.name();
+            complications.set_option(
+                face_name,
+                faces::complications::NETWORK,
+                faces::complication_options::INTERFACE,
+                network_interface.clone(),
+            );
+            info!("Migrated legacy network_interface setting: {}", network_interface);
+        }
+
+        // Get network interface from complications (or auto-detect)
+        let network_interface_value = complications
+            .get_option(face.name(), faces::complications::NETWORK, faces::complication_options::INTERFACE)
+            .cloned();
+
+        // Initialize sensors - use complication setting or auto-detect
+        let sensors = match network_interface_value.as_ref() {
+            Some(iface) if iface != "auto" && !iface.is_empty() => Sensors::new(iface),
+            _ => Sensors::new_auto(),
+        };
+
         // Load theme and set canvas background
         let theme = Theme::from_preset(&settings.theme);
         canvas.set_background(theme.background);
 
         info!("Display orientation: {}", orientation);
         info!("Theme: {}", settings.theme);
-
-        // Parse IP display preference
-        let ip_display: IpDisplayPreference = settings
-            .ip_display
-            .parse()
-            .unwrap_or(IpDisplayPreference::Ipv6Gua);
-
-        // Initialize complications from settings
-        let mut complications = settings.complications.clone();
-        complications.init_from_defaults(face.as_ref());
 
         Ok(Self {
             led_device_path: config.devices.led.clone(),
@@ -322,8 +343,6 @@ impl AppState {
             face: RwLock::new(face),
             theme_name: RwLock::new(settings.theme),
             refresh_interval_ms: RwLock::new(settings.refresh_interval_ms),
-            network_interface: RwLock::new(network_interface),
-            ip_display: RwLock::new(ip_display),
             complications: RwLock::new(complications),
         })
     }
@@ -349,8 +368,8 @@ impl AppState {
             led_intensity: *self.led_intensity.read().unwrap(),
             led_speed: *self.led_speed.read().unwrap(),
             refresh_interval_ms: *self.refresh_interval_ms.read().unwrap(),
-            network_interface: self.network_interface.read().unwrap().clone(),
-            ip_display: self.ip_display.read().unwrap().to_string(),
+            network_interface: None, // Legacy field, skip serializing
+            ip_display: None,        // Legacy field, skip serializing
             complications: self.complications.read().unwrap().clone(),
         };
 
@@ -489,8 +508,28 @@ impl AppState {
     /// Samples all sensors and returns the current system data.
     fn sample_sensors(&self) -> SystemData {
         let mut sensors = self.sensors.lock().unwrap();
-        let ip_preference = *self.ip_display.read().unwrap();
+        let ip_preference = self.get_ip_display_from_complications();
         sensors.sample(ip_preference)
+    }
+
+    /// Gets the IP display preference from complications.
+    fn get_ip_display_from_complications(&self) -> IpDisplayPreference {
+        let face_name = self.face.read().unwrap().name().to_string();
+        let complications = self.complications.read().unwrap();
+        complications
+            .get_option(&face_name, faces::complications::IP_ADDRESS, faces::complication_options::IP_TYPE)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(IpDisplayPreference::Ipv6Gua)
+    }
+
+    /// Gets the network interface from complications.
+    fn get_network_interface_from_complications(&self) -> Option<String> {
+        let face_name = self.face.read().unwrap().name().to_string();
+        let complications = self.complications.read().unwrap();
+        complications
+            .get_option(&face_name, faces::complications::NETWORK, faces::complication_options::INTERFACE)
+            .filter(|s| s != "auto" && !s.is_empty())
+            .cloned()
     }
 
     /// Renders a frame and updates the display.
@@ -771,27 +810,33 @@ impl AppState {
             led_intensity: *self.led_intensity.read().unwrap(),
             led_speed: *self.led_speed.read().unwrap(),
             refresh_interval_ms: *self.refresh_interval_ms.read().unwrap(),
-            network_interface: self.network_interface.read().unwrap().clone(),
-            ip_display: self.ip_display.read().unwrap().to_string(),
+            network_interface: None,
+            ip_display: None,
             complications: self.complications.read().unwrap().clone(),
         }
     }
 
-    /// Gets the current IP display preference.
+    /// Gets the current IP display preference from complications.
     pub fn ip_display(&self) -> IpDisplayPreference {
-        *self.ip_display.read().unwrap()
+        self.get_ip_display_from_complications()
     }
 
-    /// Sets the IP display preference.
+    /// Sets the IP display preference via complication option.
     pub fn set_ip_display(&self, preference: IpDisplayPreference) {
-        *self.ip_display.write().unwrap() = preference;
+        let face_name = self.face.read().unwrap().name().to_string();
+        self.complications.write().unwrap().set_option(
+            &face_name,
+            faces::complications::IP_ADDRESS,
+            faces::complication_options::IP_TYPE,
+            preference.to_string(),
+        );
         self.save_display_settings();
         info!("IP display preference set to: {}", preference);
     }
 
-    /// Gets the current network interface (None if auto-detected).
+    /// Gets the current network interface from complications (None if auto-detected).
     pub fn network_interface(&self) -> Option<String> {
-        self.network_interface.read().unwrap().clone()
+        self.get_network_interface_from_complications()
     }
 
     /// Gets the currently active network interface name (resolved from auto if needed).
@@ -800,16 +845,24 @@ impl AppState {
         sensors.network.interface_name().to_string()
     }
 
-    /// Sets the network interface to monitor.
-    /// Pass None to enable auto-detection.
+    /// Sets the network interface to monitor via complication option.
+    /// Pass None or "auto" to enable auto-detection.
     pub fn set_network_interface(&self, interface: Option<String>) {
-        *self.network_interface.write().unwrap() = interface.clone();
+        let face_name = self.face.read().unwrap().name().to_string();
+        let value = interface.clone().unwrap_or_else(|| "auto".to_string());
+        self.complications.write().unwrap().set_option(
+            &face_name,
+            faces::complications::NETWORK,
+            faces::complication_options::INTERFACE,
+            value.clone(),
+        );
 
         // Update the sensor
         let mut sensors = self.sensors.lock().unwrap();
-        match interface {
-            Some(ref iface) => sensors.network.set_interface(iface),
-            None => sensors.network.set_auto(),
+        if value == "auto" || value.is_empty() {
+            sensors.network.set_auto();
+        } else {
+            sensors.network.set_interface(&value);
         }
 
         self.save_display_settings();
@@ -818,5 +871,68 @@ impl AppState {
     /// Lists all available network interfaces.
     pub fn list_network_interfaces(&self) -> Vec<String> {
         NetworkSensor::list_interfaces()
+    }
+
+    /// Gets a complication option value.
+    pub fn get_complication_option(&self, complication_id: &str, option_id: &str) -> Option<String> {
+        let face_name = self.face.read().unwrap().name().to_string();
+        self.complications
+            .read()
+            .unwrap()
+            .get_option(&face_name, complication_id, option_id)
+            .cloned()
+    }
+
+    /// Sets a complication option value.
+    pub fn set_complication_option(&self, complication_id: &str, option_id: &str, value: &str) -> anyhow::Result<()> {
+        let face_name = self.face.read().unwrap().name().to_string();
+        let available = self.face.read().unwrap().available_complications();
+
+        // Validate complication exists
+        let complication = available.iter().find(|c| c.id == complication_id)
+            .ok_or_else(|| anyhow::anyhow!("Unknown complication '{}' for face '{}'", complication_id, face_name))?;
+
+        // Validate option exists
+        let option = complication.options.iter().find(|o| o.id == option_id)
+            .ok_or_else(|| anyhow::anyhow!("Unknown option '{}' for complication '{}'", option_id, complication_id))?;
+
+        // Validate value if it's a choice type
+        if let faces::ComplicationOptionType::Choice(choices) = &option.option_type {
+            if !choices.iter().any(|c| c.value == value) {
+                // Special case: network interface can be any valid interface
+                if complication_id == faces::complications::NETWORK && option_id == faces::complication_options::INTERFACE {
+                    let interfaces = NetworkSensor::list_interfaces();
+                    if value != "auto" && !interfaces.contains(&value.to_string()) {
+                        return Err(anyhow::anyhow!(
+                            "Unknown interface '{}'. Available: auto, {:?}",
+                            value, interfaces
+                        ));
+                    }
+                } else {
+                    let valid_values: Vec<_> = choices.iter().map(|c| c.value.as_str()).collect();
+                    return Err(anyhow::anyhow!(
+                        "Invalid value '{}' for option '{}'. Valid values: {:?}",
+                        value, option_id, valid_values
+                    ));
+                }
+            }
+        }
+
+        self.complications.write().unwrap().set_option(&face_name, complication_id, option_id, value.to_string());
+
+        // Special handling for network interface changes
+        if complication_id == faces::complications::NETWORK && option_id == faces::complication_options::INTERFACE {
+            let mut sensors = self.sensors.lock().unwrap();
+            if value == "auto" || value.is_empty() {
+                sensors.network.set_auto();
+            } else {
+                sensors.network.set_interface(value);
+            }
+        }
+
+        self.save_display_settings();
+        *self.needs_redraw.write().unwrap() = true;
+        info!("Complication option '{}.{}' set to '{}' for face '{}'", complication_id, option_id, value, face_name);
+        Ok(())
     }
 }

@@ -11,7 +11,7 @@ use axum::{
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::sensors::data::IpDisplayPreference;
+use crate::faces::{ComplicationOptionType, complications, complication_options};
 use crate::state::AppState;
 use ht32_panel_hw::Orientation;
 
@@ -58,34 +58,25 @@ struct ThemeTemplate {
     themes: Vec<String>,
 }
 
-/// Network interface partial template.
-#[derive(Template)]
-#[template(path = "partials/network.html")]
-struct NetworkTemplate {
-    current: String,
-    interfaces: Vec<String>,
-    is_auto: bool,
-}
-
-/// IP display option for template.
-struct IpDisplayOption {
-    value: String,
-    name: &'static str,
-}
-
-/// IP display preference partial template.
-#[derive(Template)]
-#[template(path = "partials/ip-display.html")]
-struct IpDisplayTemplate {
-    current: String,
-    options: Vec<IpDisplayOption>,
-}
-
 /// Preview partial template.
 #[derive(Template)]
 #[template(path = "partials/preview.html")]
 struct PreviewTemplate {
     timestamp: u128,
+}
+
+/// Complication option choice for template.
+struct ComplicationOptionChoice {
+    value: String,
+    label: String,
+}
+
+/// Complication option for template.
+struct ComplicationOptionItem {
+    id: String,
+    name: String,
+    current_value: String,
+    choices: Vec<ComplicationOptionChoice>,
 }
 
 /// Complication item for template.
@@ -94,6 +85,7 @@ struct ComplicationItem {
     name: String,
     description: String,
     enabled: bool,
+    options: Vec<ComplicationOptionItem>,
 }
 
 /// Complications partial template.
@@ -117,12 +109,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/face", get(face_get).post(face_set))
         .route("/led", get(led_get).post(led_set))
         .route("/theme", get(theme_get).post(theme_set))
-        .route(
-            "/network-interface",
-            get(network_interface_get).post(network_interface_set),
-        )
-        .route("/ip-display", get(ip_display_get).post(ip_display_set))
         .route("/complications", get(complications_get).post(complications_set))
+        .route("/complication-option", post(complication_option_set))
         .route("/preview", get(preview_get))
         .route("/refresh-interval", post(refresh_interval_set))
         // State
@@ -289,93 +277,6 @@ async fn theme_set(
     Html(ThemeTemplate { current, themes }.render().unwrap())
 }
 
-/// GET /network-interface - Network interface controls partial
-async fn network_interface_get(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let current = state.network_interface_config();
-    let interfaces = state.list_network_interfaces();
-    let is_auto = state.network_interface().is_none();
-    Html(
-        NetworkTemplate {
-            current,
-            interfaces,
-            is_auto,
-        }
-        .render()
-        .unwrap(),
-    )
-}
-
-/// Form data for network interface.
-#[derive(Deserialize)]
-struct NetworkInterfaceForm {
-    interface: String,
-}
-
-/// POST /network-interface - Set network interface
-async fn network_interface_set(
-    State(state): State<Arc<AppState>>,
-    Form(form): Form<NetworkInterfaceForm>,
-) -> impl IntoResponse {
-    let iface = if form.interface.eq_ignore_ascii_case("auto") || form.interface.is_empty() {
-        None
-    } else {
-        Some(form.interface)
-    };
-    state.set_network_interface(iface);
-
-    let current = state.network_interface_config();
-    let interfaces = state.list_network_interfaces();
-    let is_auto = state.network_interface().is_none();
-    Html(
-        NetworkTemplate {
-            current,
-            interfaces,
-            is_auto,
-        }
-        .render()
-        .unwrap(),
-    )
-}
-
-/// GET /ip-display - IP display preference controls partial
-async fn ip_display_get(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let current = state.ip_display().to_string();
-    let options: Vec<IpDisplayOption> = IpDisplayPreference::all()
-        .iter()
-        .map(|p| IpDisplayOption {
-            value: p.to_string(),
-            name: p.display_name(),
-        })
-        .collect();
-    Html(IpDisplayTemplate { current, options }.render().unwrap())
-}
-
-/// Form data for IP display preference.
-#[derive(Deserialize)]
-struct IpDisplayForm {
-    preference: String,
-}
-
-/// POST /ip-display - Set IP display preference
-async fn ip_display_set(
-    State(state): State<Arc<AppState>>,
-    Form(form): Form<IpDisplayForm>,
-) -> impl IntoResponse {
-    if let Ok(pref) = form.preference.parse::<IpDisplayPreference>() {
-        state.set_ip_display(pref);
-    }
-
-    let current = state.ip_display().to_string();
-    let options: Vec<IpDisplayOption> = IpDisplayPreference::all()
-        .iter()
-        .map(|p| IpDisplayOption {
-            value: p.to_string(),
-            name: p.display_name(),
-        })
-        .collect();
-    Html(IpDisplayTemplate { current, options }.render().unwrap())
-}
-
 /// GET /preview - Preview image partial
 async fn preview_get() -> impl IntoResponse {
     let timestamp = std::time::SystemTime::now()
@@ -405,14 +306,59 @@ async fn complications_get(State(state): State<Arc<AppState>>) -> impl IntoRespo
     let face_name = state.face_name();
     let available = state.available_complications();
     let enabled = state.enabled_complications();
+    let interfaces = state.list_network_interfaces();
 
     let complications: Vec<ComplicationItem> = available
         .into_iter()
-        .map(|c| ComplicationItem {
-            enabled: enabled.contains(&c.id),
-            id: c.id,
-            name: c.name,
-            description: c.description,
+        .map(|c| {
+            let options: Vec<ComplicationOptionItem> = c.options.iter().map(|opt| {
+                let current_value = state.get_complication_option(&c.id, &opt.id)
+                    .unwrap_or_else(|| opt.default_value.clone());
+
+                let choices: Vec<ComplicationOptionChoice> = match &opt.option_type {
+                    ComplicationOptionType::Choice(choices) => {
+                        // For network interface, dynamically populate with available interfaces
+                        if c.id == complications::NETWORK && opt.id == complication_options::INTERFACE {
+                            let mut iface_choices = vec![
+                                ComplicationOptionChoice { value: "auto".to_string(), label: "Auto-detect".to_string() }
+                            ];
+                            for iface in &interfaces {
+                                iface_choices.push(ComplicationOptionChoice {
+                                    value: iface.clone(),
+                                    label: iface.clone(),
+                                });
+                            }
+                            iface_choices
+                        } else {
+                            choices.iter().map(|ch| ComplicationOptionChoice {
+                                value: ch.value.clone(),
+                                label: ch.label.clone(),
+                            }).collect()
+                        }
+                    }
+                    ComplicationOptionType::Boolean => {
+                        vec![
+                            ComplicationOptionChoice { value: "true".to_string(), label: "Yes".to_string() },
+                            ComplicationOptionChoice { value: "false".to_string(), label: "No".to_string() },
+                        ]
+                    }
+                };
+
+                ComplicationOptionItem {
+                    id: opt.id.clone(),
+                    name: opt.name.clone(),
+                    current_value,
+                    choices,
+                }
+            }).collect();
+
+            ComplicationItem {
+                enabled: enabled.contains(&c.id),
+                id: c.id,
+                name: c.name,
+                description: c.description,
+                options,
+            }
         })
         .collect();
 
@@ -442,17 +388,86 @@ async fn complications_set(
     let _ = state.set_complication_enabled(&form.complication, enabled);
 
     // Re-render the complications list
+    render_complications(&state)
+}
+
+/// Form data for complication option.
+#[derive(Deserialize)]
+struct ComplicationOptionForm {
+    complication: String,
+    option: String,
+    value: String,
+}
+
+/// POST /complication-option - Set a complication option value
+async fn complication_option_set(
+    State(state): State<Arc<AppState>>,
+    Form(form): Form<ComplicationOptionForm>,
+) -> impl IntoResponse {
+    let _ = state.set_complication_option(&form.complication, &form.option, &form.value);
+
+    // Re-render the complications list
+    render_complications(&state)
+}
+
+/// Helper to render the complications template
+fn render_complications(state: &Arc<AppState>) -> Html<String> {
     let face_name = state.face_name();
     let available = state.available_complications();
     let enabled_set = state.enabled_complications();
+    let interfaces = state.list_network_interfaces();
 
     let complications: Vec<ComplicationItem> = available
         .into_iter()
-        .map(|c| ComplicationItem {
-            enabled: enabled_set.contains(&c.id),
-            id: c.id,
-            name: c.name,
-            description: c.description,
+        .map(|c| {
+            let options: Vec<ComplicationOptionItem> = c.options.iter().map(|opt| {
+                let current_value = state.get_complication_option(&c.id, &opt.id)
+                    .unwrap_or_else(|| opt.default_value.clone());
+
+                let choices: Vec<ComplicationOptionChoice> = match &opt.option_type {
+                    ComplicationOptionType::Choice(choices) => {
+                        // For network interface, dynamically populate with available interfaces
+                        if c.id == complications::NETWORK && opt.id == complication_options::INTERFACE {
+                            let mut iface_choices = vec![
+                                ComplicationOptionChoice { value: "auto".to_string(), label: "Auto-detect".to_string() }
+                            ];
+                            for iface in &interfaces {
+                                iface_choices.push(ComplicationOptionChoice {
+                                    value: iface.clone(),
+                                    label: iface.clone(),
+                                });
+                            }
+                            iface_choices
+                        } else {
+                            choices.iter().map(|ch| ComplicationOptionChoice {
+                                value: ch.value.clone(),
+                                label: ch.label.clone(),
+                            }).collect()
+                        }
+                    }
+                    ComplicationOptionType::Boolean => {
+                        vec![
+                            ComplicationOptionChoice { value: "true".to_string(), label: "Yes".to_string() },
+                            ComplicationOptionChoice { value: "false".to_string(), label: "No".to_string() },
+                        ]
+                    }
+                };
+
+                ComplicationOptionItem {
+                    id: opt.id.clone(),
+                    name: opt.name.clone(),
+                    current_value,
+                    choices,
+                }
+            }).collect();
+
+            ComplicationItem {
+                enabled: enabled_set.contains(&c.id),
+                id: c.id,
+                name: c.name,
+                description: c.description,
+                options,
+            }
         })
         .collect();
 

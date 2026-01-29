@@ -64,18 +64,16 @@ trait Daemon1 {
     /// Sets the refresh interval in milliseconds.
     fn set_refresh_interval(&self, ms: u32) -> zbus::Result<()>;
 
-    /// Gets the current network interface.
-    fn get_network_interface(&self) -> zbus::Result<String>;
-
-    /// Sets the network interface to monitor.
-    fn set_network_interface(&self, interface: &str) -> zbus::Result<()>;
-
     /// Lists all available network interfaces.
     fn list_network_interfaces(&self) -> zbus::Result<Vec<String>>;
 
     /// Lists available complications for the current face.
     /// Returns (id, name, description, enabled) tuples.
     fn list_complications(&self) -> zbus::Result<Vec<(String, String, String, bool)>>;
+
+    /// Lists available complications with full details including options.
+    /// Returns JSON-encoded complication data.
+    fn list_complications_detailed(&self) -> zbus::Result<Vec<String>>;
 
     /// Gets enabled complications for the current face.
     fn get_enabled_complications(&self) -> zbus::Result<Vec<String>>;
@@ -85,6 +83,12 @@ trait Daemon1 {
 
     /// Disables a complication for the current face.
     fn disable_complication(&self, complication_id: &str) -> zbus::Result<()>;
+
+    /// Gets a complication option value.
+    fn get_complication_option(&self, complication_id: &str, option_id: &str) -> zbus::Result<String>;
+
+    /// Sets a complication option value.
+    fn set_complication_option(&self, complication_id: &str, option_id: &str, value: &str) -> zbus::Result<()>;
 
     /// Returns the current framebuffer as PNG data.
     fn get_screen_png(&self) -> zbus::Result<Vec<u8>>;
@@ -119,10 +123,6 @@ trait Daemon1 {
     /// Current refresh interval in milliseconds.
     #[zbus(property)]
     fn refresh_interval(&self) -> zbus::Result<u32>;
-
-    /// Current network interface name.
-    #[zbus(property)]
-    fn network_interface(&self) -> zbus::Result<String>;
 
     /// Current display face name.
     #[zbus(property)]
@@ -285,22 +285,6 @@ impl DaemonClient {
             .context("Failed to set refresh interval via D-Bus")
     }
 
-    /// Gets the current network interface.
-    pub async fn get_network_interface(&self) -> Result<String> {
-        self.proxy
-            .get_network_interface()
-            .await
-            .context("Failed to get network interface via D-Bus")
-    }
-
-    /// Sets the network interface.
-    pub async fn set_network_interface(&self, interface: &str) -> Result<()> {
-        self.proxy
-            .set_network_interface(interface)
-            .await
-            .context("Failed to set network interface via D-Bus")
-    }
-
     /// Lists available network interfaces.
     pub async fn list_network_interfaces(&self) -> Result<Vec<String>> {
         self.proxy
@@ -350,6 +334,15 @@ impl DaemonClient {
             .context("Failed to list complications via D-Bus")
     }
 
+    /// Lists complications with full details including options.
+    /// Returns JSON-encoded complication data.
+    pub async fn list_complications_detailed(&self) -> Result<Vec<String>> {
+        self.proxy
+            .list_complications_detailed()
+            .await
+            .context("Failed to list complications detailed via D-Bus")
+    }
+
     /// Gets enabled complications for the current face.
     pub async fn get_enabled_complications(&self) -> Result<Vec<String>> {
         self.proxy
@@ -372,5 +365,21 @@ impl DaemonClient {
             .disable_complication(complication_id)
             .await
             .context("Failed to disable complication via D-Bus")
+    }
+
+    /// Gets a complication option value.
+    pub async fn get_complication_option(&self, complication_id: &str, option_id: &str) -> Result<String> {
+        self.proxy
+            .get_complication_option(complication_id, option_id)
+            .await
+            .context("Failed to get complication option via D-Bus")
+    }
+
+    /// Sets a complication option value.
+    pub async fn set_complication_option(&self, complication_id: &str, option_id: &str, value: &str) -> Result<()> {
+        self.proxy
+            .set_complication_option(complication_id, option_id, value)
+            .await
+            .context("Failed to set complication option via D-Bus")
     }
 }

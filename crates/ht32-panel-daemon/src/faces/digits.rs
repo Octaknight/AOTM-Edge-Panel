@@ -3,7 +3,10 @@
 //! Features a retro LCD aesthetic with large time display and
 //! segmented areas for system metrics.
 
-use super::{complications, Complication, EnabledComplications, Face, Theme};
+use super::{
+    complication_options, complications, date_formats, time_formats, Complication,
+    ComplicationChoice, ComplicationOption, EnabledComplications, Face, Theme,
+};
 use crate::rendering::Canvas;
 use crate::sensors::data::SystemData;
 
@@ -93,15 +96,77 @@ impl Face for DigitsFace {
 
     fn available_complications(&self) -> Vec<Complication> {
         vec![
-            Complication::new(complications::TIME, "Time", "Display the current time", true),
-            Complication::new(complications::HOSTNAME, "Hostname", "Display the system hostname", true),
-            Complication::new(complications::UPTIME, "Uptime", "Display system uptime", true),
-            Complication::new(complications::IP_ADDRESS, "IP Address", "Display network IP address", true),
-            Complication::new(complications::CPU, "CPU", "Display CPU usage", true),
-            Complication::new(complications::CPU_TEMP, "CPU Temperature", "Display CPU temperature", true),
-            Complication::new(complications::RAM, "RAM", "Display RAM usage", true),
+            Complication::with_options(
+                complications::TIME,
+                "Time",
+                "Display the current time",
+                true,
+                vec![ComplicationOption::choice(
+                    complication_options::TIME_FORMAT,
+                    "Format",
+                    "Time display format",
+                    vec![
+                        ComplicationChoice::new(time_formats::DIGITAL_24H, "Digital (24h)"),
+                        ComplicationChoice::new(time_formats::DIGITAL_12H, "Digital (12h)"),
+                        ComplicationChoice::new(time_formats::ANALOGUE, "Analogue"),
+                    ],
+                    time_formats::DIGITAL_24H,
+                )],
+            ),
+            Complication::with_options(
+                complications::DATE,
+                "Date",
+                "Display the current date",
+                true,
+                vec![ComplicationOption::choice(
+                    complication_options::DATE_FORMAT,
+                    "Format",
+                    "Date display format",
+                    vec![
+                        ComplicationChoice::new(date_formats::HIDDEN, "Hidden"),
+                        ComplicationChoice::new(date_formats::ISO, "ISO (2024-01-15)"),
+                        ComplicationChoice::new(date_formats::US, "US (01/15/2024)"),
+                        ComplicationChoice::new(date_formats::EU, "EU (15/01/2024)"),
+                        ComplicationChoice::new(date_formats::SHORT, "Short (Jan 15)"),
+                        ComplicationChoice::new(date_formats::LONG, "Long (January 15, 2024)"),
+                        ComplicationChoice::new(date_formats::WEEKDAY, "Weekday (Mon, Jan 15)"),
+                    ],
+                    date_formats::HIDDEN,
+                )],
+            ),
+            Complication::with_options(
+                complications::IP_ADDRESS,
+                "IP Address",
+                "Display network IP address",
+                true,
+                vec![ComplicationOption::choice(
+                    complication_options::IP_TYPE,
+                    "IP Type",
+                    "Type of IP address to display",
+                    vec![
+                        ComplicationChoice::new("ipv6-gua", "IPv6 Global"),
+                        ComplicationChoice::new("ipv6-lla", "IPv6 Link-Local"),
+                        ComplicationChoice::new("ipv6-ula", "IPv6 ULA"),
+                        ComplicationChoice::new("ipv4", "IPv4"),
+                    ],
+                    "ipv6-gua",
+                )],
+            ),
+            Complication::with_options(
+                complications::NETWORK,
+                "Network",
+                "Display network up/down rates",
+                true,
+                vec![ComplicationOption::choice(
+                    complication_options::INTERFACE,
+                    "Interface",
+                    "Network interface to monitor",
+                    vec![ComplicationChoice::new("auto", "Auto-detect")],
+                    "auto",
+                )],
+            ),
             Complication::new(complications::DISK_IO, "Disk I/O", "Display disk read/write rates", true),
-            Complication::new(complications::NETWORK, "Network", "Display network up/down rates", true),
+            Complication::new(complications::CPU_TEMP, "CPU Temperature", "Display CPU temperature", true),
         ]
     }
 
@@ -120,39 +185,57 @@ impl Face for DigitsFace {
 
         let is_on = |id: &str| comp.is_enabled(self.name(), id, true);
 
+        // Get time format option
+        let time_format = comp
+            .get_option(self.name(), complications::TIME, complication_options::TIME_FORMAT)
+            .map(|s| s.as_str())
+            .unwrap_or(time_formats::DIGITAL_24H);
+
+        // Get date format option
+        let date_format = comp
+            .get_option(self.name(), complications::DATE, complication_options::DATE_FORMAT)
+            .map(|s| s.as_str())
+            .unwrap_or(date_formats::HIDDEN);
+
         if portrait {
             // Portrait layout
-            if is_on(complications::TIME) {
-                let time_width = canvas.text_width(&data.time, FONT_TIME);
+            // Complication: Time
+            if is_on(complications::TIME) && time_format != time_formats::ANALOGUE {
+                let time_str = data.format_time(time_format);
+                let time_width = canvas.text_width(&time_str, FONT_TIME);
                 let time_x = (width as i32 - time_width) / 2;
-                canvas.draw_text(time_x, y, &data.time, FONT_TIME, colors.segment_on);
+                canvas.draw_text(time_x, y, &time_str, FONT_TIME, colors.segment_on);
                 y += canvas.line_height(FONT_TIME) + 2;
             }
 
-            if is_on(complications::HOSTNAME) {
-                let host_width = canvas.text_width(&data.hostname, FONT_SMALL);
-                let host_x = (width as i32 - host_width) / 2;
-                canvas.draw_text(host_x, y, &data.hostname, FONT_SMALL, colors.label);
-                y += canvas.line_height(FONT_SMALL) + 4;
+            // Complication: Date (centered, if not hidden)
+            if is_on(complications::DATE) {
+                if let Some(date_str) = data.format_date(date_format) {
+                    let date_width = canvas.text_width(&date_str, FONT_SMALL);
+                    let date_x = (width as i32 - date_width) / 2;
+                    canvas.draw_text(date_x, y, &date_str, FONT_SMALL, colors.label);
+                    y += canvas.line_height(FONT_SMALL) + 2;
+                }
             }
+
+            // Base element: Hostname (always shown)
+            let host_width = canvas.text_width(&data.hostname, FONT_SMALL);
+            let host_x = (width as i32 - host_width) / 2;
+            canvas.draw_text(host_x, y, &data.hostname, FONT_SMALL, colors.label);
+            y += canvas.line_height(FONT_SMALL) + 4;
 
             let col_width = (width as i32 - margin * 3) / 2;
 
-            if is_on(complications::CPU) || is_on(complications::RAM) {
-                Self::draw_divider(canvas, y, width, margin, colors.divider);
-                y += 6;
+            // Base elements: CPU and RAM (always shown)
+            Self::draw_divider(canvas, y, width, margin, colors.divider);
+            y += 6;
+            Self::draw_segment_value(canvas, margin, y, "CPU",
+                &format!("{:2.0}%", data.cpu_percent), colors.label, colors.segment_on);
+            Self::draw_segment_value(canvas, margin + col_width + margin, y, "RAM",
+                &format!("{:2.0}%", data.ram_percent), colors.label, colors.segment_on);
+            y += 32;
 
-                if is_on(complications::CPU) {
-                    Self::draw_segment_value(canvas, margin, y, "CPU",
-                        &format!("{:2.0}%", data.cpu_percent), colors.label, colors.segment_on);
-                }
-                if is_on(complications::RAM) {
-                    Self::draw_segment_value(canvas, margin + col_width + margin, y, "RAM",
-                        &format!("{:2.0}%", data.ram_percent), colors.label, colors.segment_on);
-                }
-                y += 32;
-            }
-
+            // Complication: Disk I/O
             if is_on(complications::DISK_IO) {
                 Self::draw_divider(canvas, y, width, margin, colors.divider);
                 y += 6;
@@ -163,6 +246,7 @@ impl Face for DigitsFace {
                 y += 32;
             }
 
+            // Complication: Network
             if is_on(complications::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
@@ -171,16 +255,15 @@ impl Face for DigitsFace {
                 y += 32;
             }
 
-            if is_on(complications::UPTIME) || is_on(complications::IP_ADDRESS) {
-                Self::draw_divider(canvas, y, width, margin, colors.divider);
-                y += 6;
-            }
+            // Base element: Uptime and complication: IP address
+            Self::draw_divider(canvas, y, width, margin, colors.divider);
+            y += 6;
 
-            if is_on(complications::UPTIME) {
-                canvas.draw_text(margin, y, &format!("UP {}", data.uptime), FONT_SMALL, colors.label);
-                y += canvas.line_height(FONT_SMALL) + 2;
-            }
+            // Base element: Uptime (always shown)
+            canvas.draw_text(margin, y, &format!("UP {}", data.uptime), FONT_SMALL, colors.label);
+            y += canvas.line_height(FONT_SMALL) + 2;
 
+            // Complication: IP address
             if is_on(complications::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     let max_chars = if width < 150 { 20 } else { 30 };
@@ -194,36 +277,43 @@ impl Face for DigitsFace {
             }
         } else {
             // Landscape layout
-            if is_on(complications::TIME) {
-                canvas.draw_text(margin, y, &data.time, FONT_TIME, colors.segment_on);
+            // Complication: Time
+            if is_on(complications::TIME) && time_format != time_formats::ANALOGUE {
+                let time_str = data.format_time(time_format);
+                canvas.draw_text(margin, y, &time_str, FONT_TIME, colors.segment_on);
             }
-            if is_on(complications::HOSTNAME) {
-                let host_width = canvas.text_width(&data.hostname, FONT_SMALL);
-                canvas.draw_text(width as i32 - margin - host_width, y + 8, &data.hostname, FONT_SMALL, colors.label);
-            }
-            if is_on(complications::UPTIME) {
+
+            // Complication: Date (right side, below hostname if shown)
+            let host_width = canvas.text_width(&data.hostname, FONT_SMALL);
+            canvas.draw_text(width as i32 - margin - host_width, y + 8, &data.hostname, FONT_SMALL, colors.label);
+
+            if is_on(complications::DATE) {
+                if let Some(date_str) = data.format_date(date_format) {
+                    let date_width = canvas.text_width(&date_str, FONT_SMALL);
+                    canvas.draw_text(width as i32 - margin - date_width, y + 22, &date_str, FONT_SMALL, colors.label);
+                } else {
+                    let uptime_text = format!("UP {}", data.uptime);
+                    let uptime_width = canvas.text_width(&uptime_text, FONT_SMALL);
+                    canvas.draw_text(width as i32 - margin - uptime_width, y + 22, &uptime_text, FONT_SMALL, colors.label);
+                }
+            } else {
                 let uptime_text = format!("UP {}", data.uptime);
                 let uptime_width = canvas.text_width(&uptime_text, FONT_SMALL);
                 canvas.draw_text(width as i32 - margin - uptime_width, y + 22, &uptime_text, FONT_SMALL, colors.label);
             }
-            if is_on(complications::TIME) || is_on(complications::HOSTNAME) {
-                y += canvas.line_height(FONT_TIME) + 6;
-            }
+            y += canvas.line_height(FONT_TIME) + 6;
 
             Self::draw_divider(canvas, y, width, margin, colors.divider);
             y += 8;
 
             let col_width = (width as i32 - margin * 5) / 4;
 
-            // Row 1: CPU, RAM, Temp
-            if is_on(complications::CPU) {
-                Self::draw_segment_value(canvas, margin, y, "CPU",
-                    &format!("{:2.0}%", data.cpu_percent), colors.label, colors.segment_on);
-            }
-            if is_on(complications::RAM) {
-                Self::draw_segment_value(canvas, margin + col_width + margin, y, "RAM",
-                    &format!("{:2.0}%", data.ram_percent), colors.label, colors.segment_on);
-            }
+            // Row 1: CPU (base), RAM (base), Temp (complication)
+            Self::draw_segment_value(canvas, margin, y, "CPU",
+                &format!("{:2.0}%", data.cpu_percent), colors.label, colors.segment_on);
+            Self::draw_segment_value(canvas, margin + col_width + margin, y, "RAM",
+                &format!("{:2.0}%", data.ram_percent), colors.label, colors.segment_on);
+            // Complication: CPU temperature
             if is_on(complications::CPU_TEMP) {
                 if let Some(temp) = data.cpu_temp {
                     Self::draw_segment_value(canvas, margin + (col_width + margin) * 2, y, "TEMP",
@@ -235,7 +325,7 @@ impl Face for DigitsFace {
             Self::draw_divider(canvas, y, width, margin, colors.divider);
             y += 8;
 
-            // Row 2: Disk R, Disk W, Net Down, Net Up
+            // Row 2: Disk R, Disk W (complication), Net Down, Net Up (complication)
             if is_on(complications::DISK_IO) {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
@@ -253,6 +343,7 @@ impl Face for DigitsFace {
             Self::draw_divider(canvas, y, width, margin, colors.divider);
             y += 6;
 
+            // Complication: IP address
             if is_on(complications::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     canvas.draw_text(margin, y, ip, FONT_SMALL, colors.label);

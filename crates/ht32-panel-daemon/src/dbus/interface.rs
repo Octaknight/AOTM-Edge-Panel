@@ -10,7 +10,6 @@ use tracing::{debug, info, warn};
 use zbus::{interface, Connection};
 
 use crate::config::DbusBusType;
-use crate::sensors::data::IpDisplayPreference;
 use crate::state::AppState;
 
 /// D-Bus signal types for state change notifications.
@@ -23,10 +22,8 @@ pub enum DaemonSignals {
     LedChanged,
     /// Display settings (theme, face, etc.) changed.
     DisplaySettingsChanged,
-    /// Network interface changed.
-    NetworkInterfaceChanged,
-    /// IP display preference changed.
-    IpDisplayChanged,
+    /// Complication option changed.
+    ComplicationOptionChanged,
 }
 
 /// D-Bus interface implementation for the HT32 Panel Daemon.
@@ -268,80 +265,9 @@ impl Daemon1Interface {
         Ok(())
     }
 
-    /// Gets the currently active network interface name.
-    fn get_network_interface(&self) -> String {
-        self.state.network_interface_config()
-    }
-
-    /// Sets the network interface to monitor.
-    /// Pass "auto" or empty string to enable auto-detection.
-    fn set_network_interface(&self, interface: &str) -> zbus::fdo::Result<()> {
-        let iface = if interface.is_empty() || interface.eq_ignore_ascii_case("auto") {
-            None
-        } else {
-            // Validate the interface exists
-            let interfaces = self.state.list_network_interfaces();
-            if !interfaces.contains(&interface.to_string()) {
-                return Err(zbus::fdo::Error::InvalidArgs(format!(
-                    "Unknown interface '{}'. Available: {:?}",
-                    interface, interfaces
-                )));
-            }
-            Some(interface.to_string())
-        };
-
-        self.state.set_network_interface(iface);
-        let _ = self.signal_tx.send(DaemonSignals::NetworkInterfaceChanged);
-
-        debug!("D-Bus: SetNetworkInterface({})", interface);
-        Ok(())
-    }
-
     /// Lists all available network interfaces.
     fn list_network_interfaces(&self) -> Vec<String> {
         self.state.list_network_interfaces()
-    }
-
-    /// Current network interface name.
-    #[zbus(property)]
-    fn network_interface(&self) -> String {
-        self.state.network_interface_config()
-    }
-
-    /// Gets the current IP display preference.
-    fn get_ip_display(&self) -> String {
-        self.state.ip_display().to_string()
-    }
-
-    /// Sets the IP display preference.
-    /// Valid values: "ipv6-gua", "ipv6-lla", "ipv6-ula", "ipv4"
-    fn set_ip_display(&self, preference: &str) -> zbus::fdo::Result<()> {
-        let pref: IpDisplayPreference = preference.parse().map_err(|e: String| {
-            zbus::fdo::Error::InvalidArgs(format!(
-                "{}. Valid: ipv6-gua, ipv6-lla, ipv6-ula, ipv4",
-                e
-            ))
-        })?;
-
-        self.state.set_ip_display(pref);
-        let _ = self.signal_tx.send(DaemonSignals::IpDisplayChanged);
-
-        debug!("D-Bus: SetIpDisplay({})", preference);
-        Ok(())
-    }
-
-    /// Lists all available IP display options.
-    fn list_ip_display_options(&self) -> Vec<String> {
-        IpDisplayPreference::all()
-            .iter()
-            .map(|p| p.to_string())
-            .collect()
-    }
-
-    /// Current IP display preference.
-    #[zbus(property)]
-    fn ip_display(&self) -> String {
-        self.state.ip_display().to_string()
     }
 
     /// Lists available complications for the current face.
@@ -354,6 +280,68 @@ impl Daemon1Interface {
             .map(|c| {
                 let is_enabled = enabled.contains(&c.id);
                 (c.id, c.name, c.description, is_enabled)
+            })
+            .collect()
+    }
+
+    /// Lists available complications with full details including options.
+    /// Returns JSON-encoded complication data.
+    fn list_complications_detailed(&self) -> Vec<String> {
+        let available = self.state.available_complications();
+        let enabled = self.state.enabled_complications();
+        let face_name = self.state.face_name();
+
+        available
+            .into_iter()
+            .map(|c| {
+                let is_enabled = enabled.contains(&c.id);
+                // Get current option values
+                let options: Vec<serde_json::Value> = c.options.iter().map(|opt| {
+                    let current_value = self.state.get_complication_option(&c.id, &opt.id)
+                        .unwrap_or_else(|| opt.default_value.clone());
+
+                    let choices: Vec<serde_json::Value> = match &opt.option_type {
+                        crate::faces::ComplicationOptionType::Choice(choices) => {
+                            // For network interface, dynamically get available interfaces
+                            if c.id == "network" && opt.id == "interface" {
+                                let mut ifaces: Vec<serde_json::Value> = vec![
+                                    serde_json::json!({"value": "auto", "label": "Auto-detect"})
+                                ];
+                                for iface in self.state.list_network_interfaces() {
+                                    ifaces.push(serde_json::json!({"value": iface, "label": iface}));
+                                }
+                                ifaces
+                            } else {
+                                choices.iter().map(|ch| {
+                                    serde_json::json!({"value": ch.value, "label": ch.label})
+                                }).collect()
+                            }
+                        }
+                        crate::faces::ComplicationOptionType::Boolean => {
+                            vec![
+                                serde_json::json!({"value": "true", "label": "Yes"}),
+                                serde_json::json!({"value": "false", "label": "No"}),
+                            ]
+                        }
+                    };
+
+                    serde_json::json!({
+                        "id": opt.id,
+                        "name": opt.name,
+                        "description": opt.description,
+                        "current_value": current_value,
+                        "choices": choices
+                    })
+                }).collect();
+
+                serde_json::json!({
+                    "id": c.id,
+                    "name": c.name,
+                    "description": c.description,
+                    "enabled": is_enabled,
+                    "options": options,
+                    "face": face_name
+                }).to_string()
             })
             .collect()
     }
@@ -380,6 +368,26 @@ impl Daemon1Interface {
             .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
         let _ = self.signal_tx.send(DaemonSignals::DisplaySettingsChanged);
         debug!("D-Bus: DisableComplication({})", complication_id);
+        Ok(())
+    }
+
+    /// Gets a complication option value.
+    fn get_complication_option(&self, complication_id: &str, option_id: &str) -> zbus::fdo::Result<String> {
+        self.state
+            .get_complication_option(complication_id, option_id)
+            .ok_or_else(|| zbus::fdo::Error::InvalidArgs(format!(
+                "Unknown option '{}' for complication '{}'",
+                option_id, complication_id
+            )))
+    }
+
+    /// Sets a complication option value.
+    fn set_complication_option(&self, complication_id: &str, option_id: &str, value: &str) -> zbus::fdo::Result<()> {
+        self.state
+            .set_complication_option(complication_id, option_id, value)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
+        let _ = self.signal_tx.send(DaemonSignals::ComplicationOptionChanged);
+        debug!("D-Bus: SetComplicationOption({}, {}, {})", complication_id, option_id, value);
         Ok(())
     }
 }

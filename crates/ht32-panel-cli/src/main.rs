@@ -62,11 +62,6 @@ enum Commands {
         #[command(subcommand)]
         action: ThemeCommands,
     },
-    /// Network interface settings
-    Network {
-        #[command(subcommand)]
-        action: NetworkCommands,
-    },
     /// Face complications settings
     Complication {
         #[command(subcommand)]
@@ -155,32 +150,37 @@ enum ThemeCommands {
 }
 
 #[derive(Subcommand)]
-enum NetworkCommands {
-    /// Show current network interface
-    Show,
-    /// Set network interface to monitor
-    Set {
-        /// Interface name (e.g., eth0, wlan0) or "auto" for auto-detection
-        interface: String,
-    },
-    /// List available network interfaces
-    List,
-}
-
-#[derive(Subcommand)]
 enum ComplicationCommands {
-    /// List available complications for the current face
+    /// List available complications for the current face with their options
     List,
     /// Enable a complication
     Enable {
-        /// Complication ID (e.g., network, disk_io, cpu_temp)
+        /// Complication ID (e.g., network, disk_io, cpu_temp, ip_address)
         id: String,
     },
     /// Disable a complication
     Disable {
-        /// Complication ID (e.g., network, disk_io, cpu_temp)
+        /// Complication ID (e.g., network, disk_io, cpu_temp, ip_address)
         id: String,
     },
+    /// Get a complication option value
+    Get {
+        /// Complication ID (e.g., ip_address, network)
+        complication: String,
+        /// Option ID (e.g., ip_type, interface)
+        option: String,
+    },
+    /// Set a complication option value
+    Set {
+        /// Complication ID (e.g., ip_address, network)
+        complication: String,
+        /// Option ID (e.g., ip_type, interface)
+        option: String,
+        /// Value to set
+        value: String,
+    },
+    /// List available network interfaces
+    ListInterfaces,
 }
 
 #[tokio::main]
@@ -204,7 +204,6 @@ async fn main() -> Result<()> {
         Commands::Lcd { action } => handle_lcd(action, &client).await,
         Commands::Led { action } => handle_led(action, &client).await,
         Commands::Theme { action } => handle_theme(action, &client).await,
-        Commands::Network { action } => handle_network(action, &client).await,
         Commands::Complication { action } => handle_complication(action, &client).await,
         Commands::Screenshot { output } => handle_screenshot(&output, &client).await,
         Commands::Daemon { action } => handle_daemon(action, &client).await,
@@ -353,45 +352,35 @@ async fn handle_theme(action: ThemeCommands, client: &DaemonClient) -> Result<()
     Ok(())
 }
 
-async fn handle_network(action: NetworkCommands, client: &DaemonClient) -> Result<()> {
-    match action {
-        NetworkCommands::Show => {
-            let iface = client.get_network_interface().await?;
-            println!("Network interface: {}", iface);
-        }
-        NetworkCommands::Set { interface } => {
-            client.set_network_interface(&interface).await?;
-            if interface.eq_ignore_ascii_case("auto") {
-                println!("Network interface set to auto-detect");
-            } else {
-                println!("Network interface set to: {}", interface);
-            }
-        }
-        NetworkCommands::List => {
-            let interfaces = client.list_network_interfaces().await?;
-            println!("Available network interfaces:");
-            for iface in interfaces {
-                println!("  {}", iface);
-            }
-        }
-    }
-
-    Ok(())
-}
-
 async fn handle_complication(action: ComplicationCommands, client: &DaemonClient) -> Result<()> {
     match action {
         ComplicationCommands::List => {
             let face = client.get_face().await?;
-            let complications = client.list_complications().await?;
+            let complications = client.list_complications_detailed().await?;
             println!("Complications for '{}' face:", face);
             if complications.is_empty() {
                 println!("  (none available)");
             } else {
-                for (id, name, description, enabled) in complications {
-                    let status = if enabled { "[x]" } else { "[ ]" };
-                    println!("  {} {} - {}", status, id, name);
-                    println!("      {}", description);
+                for comp_json in complications {
+                    if let Ok(comp) = serde_json::from_str::<serde_json::Value>(&comp_json) {
+                        let id = comp["id"].as_str().unwrap_or("");
+                        let name = comp["name"].as_str().unwrap_or("");
+                        let description = comp["description"].as_str().unwrap_or("");
+                        let enabled = comp["enabled"].as_bool().unwrap_or(false);
+                        let status = if enabled { "[x]" } else { "[ ]" };
+                        println!("  {} {} - {}", status, id, name);
+                        println!("      {}", description);
+
+                        // Show options if any
+                        if let Some(options) = comp["options"].as_array() {
+                            for opt in options {
+                                let opt_id = opt["id"].as_str().unwrap_or("");
+                                let opt_name = opt["name"].as_str().unwrap_or("");
+                                let current = opt["current_value"].as_str().unwrap_or("");
+                                println!("      - {}: {} (current: {})", opt_id, opt_name, current);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -402,6 +391,22 @@ async fn handle_complication(action: ComplicationCommands, client: &DaemonClient
         ComplicationCommands::Disable { id } => {
             client.disable_complication(&id).await?;
             println!("Disabled complication: {}", id);
+        }
+        ComplicationCommands::Get { complication, option } => {
+            let value = client.get_complication_option(&complication, &option).await?;
+            println!("{}.{} = {}", complication, option, value);
+        }
+        ComplicationCommands::Set { complication, option, value } => {
+            client.set_complication_option(&complication, &option, &value).await?;
+            println!("Set {}.{} = {}", complication, option, value);
+        }
+        ComplicationCommands::ListInterfaces => {
+            let interfaces = client.list_network_interfaces().await?;
+            println!("Available network interfaces:");
+            println!("  auto (auto-detect)");
+            for iface in interfaces {
+                println!("  {}", iface);
+            }
         }
     }
 

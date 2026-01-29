@@ -71,8 +71,20 @@ impl std::str::FromStr for IpDisplayPreference {
 pub struct SystemData {
     /// Hostname of the system
     pub hostname: String,
-    /// Current time formatted as "HH:MM"
+    /// Current time formatted as "HH:MM" (24h format, for backwards compatibility)
     pub time: String,
+    /// Hour (0-23)
+    pub hour: u8,
+    /// Minute (0-59)
+    pub minute: u8,
+    /// Day of month (1-31)
+    pub day: u8,
+    /// Month (1-12)
+    pub month: u8,
+    /// Year (e.g., 2024)
+    pub year: u16,
+    /// Day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+    pub day_of_week: u8,
     /// Uptime formatted as "Xd Yh Zm"
     pub uptime: String,
     /// CPU usage percentage (0-100)
@@ -100,6 +112,57 @@ pub struct SystemData {
 }
 
 impl SystemData {
+    /// Formats time according to the specified format.
+    pub fn format_time(&self, format: &str) -> String {
+        match format {
+            "digital-12h" => {
+                let (hour_12, am_pm) = if self.hour == 0 {
+                    (12, "AM")
+                } else if self.hour < 12 {
+                    (self.hour, "AM")
+                } else if self.hour == 12 {
+                    (12, "PM")
+                } else {
+                    (self.hour - 12, "PM")
+                };
+                format!("{:2}:{:02} {}", hour_12, self.minute, am_pm)
+            }
+            "analogue" => {
+                // For analogue, return empty - faces should draw a clock
+                String::new()
+            }
+            // Default to digital-24h
+            _ => format!("{:02}:{:02}", self.hour, self.minute),
+        }
+    }
+
+    /// Formats date according to the specified format.
+    pub fn format_date(&self, format: &str) -> Option<String> {
+        let month_names = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        let month_abbrev = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        ];
+        let weekday_abbrev = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+        let month_idx = (self.month.saturating_sub(1) as usize).min(11);
+        let weekday_idx = (self.day_of_week as usize).min(6);
+
+        match format {
+            "hidden" => None,
+            "iso" => Some(format!("{:04}-{:02}-{:02}", self.year, self.month, self.day)),
+            "us" => Some(format!("{:02}/{:02}/{:04}", self.month, self.day, self.year)),
+            "eu" => Some(format!("{:02}/{:02}/{:04}", self.day, self.month, self.year)),
+            "short" => Some(format!("{} {}", month_abbrev[month_idx], self.day)),
+            "long" => Some(format!("{} {}, {}", month_names[month_idx], self.day, self.year)),
+            "weekday" => Some(format!("{}, {} {}", weekday_abbrev[weekday_idx], month_abbrev[month_idx], self.day)),
+            _ => None,
+        }
+    }
+
     /// Formats a byte rate as a human-readable string (e.g., "1.2 MB/s")
     pub fn format_rate(bytes_per_sec: f64) -> String {
         if bytes_per_sec >= 1_000_000_000.0 {

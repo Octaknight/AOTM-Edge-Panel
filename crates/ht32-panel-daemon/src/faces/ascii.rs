@@ -13,7 +13,10 @@
 //! enp2s0: 192.168.1.100
 //! ```
 
-use super::{complications, Complication, EnabledComplications, Face, Theme};
+use super::{
+    complication_options, complications, date_formats, time_formats, Complication,
+    ComplicationChoice, ComplicationOption, EnabledComplications, Face, Theme,
+};
 use crate::rendering::Canvas;
 use crate::sensors::data::SystemData;
 
@@ -102,15 +105,77 @@ impl Face for AsciiFace {
 
     fn available_complications(&self) -> Vec<Complication> {
         vec![
-            Complication::new(complications::HOSTNAME, "Hostname", "Display the system hostname", true),
-            Complication::new(complications::TIME, "Time", "Display the current time", true),
-            Complication::new(complications::UPTIME, "Uptime", "Display system uptime", true),
-            Complication::new(complications::IP_ADDRESS, "IP Address", "Display network IP address", true),
-            Complication::new(complications::CPU, "CPU", "Display CPU usage", true),
-            Complication::new(complications::CPU_TEMP, "CPU Temperature", "Display CPU temperature", true),
-            Complication::new(complications::RAM, "RAM", "Display RAM usage", true),
+            Complication::with_options(
+                complications::TIME,
+                "Time",
+                "Display the current time",
+                true,
+                vec![ComplicationOption::choice(
+                    complication_options::TIME_FORMAT,
+                    "Format",
+                    "Time display format",
+                    vec![
+                        ComplicationChoice::new(time_formats::DIGITAL_24H, "Digital (24h)"),
+                        ComplicationChoice::new(time_formats::DIGITAL_12H, "Digital (12h)"),
+                        ComplicationChoice::new(time_formats::ANALOGUE, "Analogue"),
+                    ],
+                    time_formats::DIGITAL_24H,
+                )],
+            ),
+            Complication::with_options(
+                complications::DATE,
+                "Date",
+                "Display the current date",
+                true,
+                vec![ComplicationOption::choice(
+                    complication_options::DATE_FORMAT,
+                    "Format",
+                    "Date display format",
+                    vec![
+                        ComplicationChoice::new(date_formats::HIDDEN, "Hidden"),
+                        ComplicationChoice::new(date_formats::ISO, "ISO (2024-01-15)"),
+                        ComplicationChoice::new(date_formats::US, "US (01/15/2024)"),
+                        ComplicationChoice::new(date_formats::EU, "EU (15/01/2024)"),
+                        ComplicationChoice::new(date_formats::SHORT, "Short (Jan 15)"),
+                        ComplicationChoice::new(date_formats::LONG, "Long (January 15, 2024)"),
+                        ComplicationChoice::new(date_formats::WEEKDAY, "Weekday (Mon, Jan 15)"),
+                    ],
+                    date_formats::HIDDEN,
+                )],
+            ),
+            Complication::with_options(
+                complications::IP_ADDRESS,
+                "IP Address",
+                "Display network IP address",
+                true,
+                vec![ComplicationOption::choice(
+                    complication_options::IP_TYPE,
+                    "IP Type",
+                    "Type of IP address to display",
+                    vec![
+                        ComplicationChoice::new("ipv6-gua", "IPv6 Global"),
+                        ComplicationChoice::new("ipv6-lla", "IPv6 Link-Local"),
+                        ComplicationChoice::new("ipv6-ula", "IPv6 ULA"),
+                        ComplicationChoice::new("ipv4", "IPv4"),
+                    ],
+                    "ipv6-gua",
+                )],
+            ),
+            Complication::with_options(
+                complications::NETWORK,
+                "Network",
+                "Display network activity graph",
+                true,
+                vec![ComplicationOption::choice(
+                    complication_options::INTERFACE,
+                    "Interface",
+                    "Network interface to monitor",
+                    vec![ComplicationChoice::new("auto", "Auto-detect")],
+                    "auto",
+                )],
+            ),
             Complication::new(complications::DISK_IO, "Disk I/O", "Display disk activity graph", true),
-            Complication::new(complications::NETWORK, "Network", "Display network activity graph", true),
+            Complication::new(complications::CPU_TEMP, "CPU Temperature", "Display CPU temperature", true),
         ]
     }
 
@@ -128,28 +193,48 @@ impl Face for AsciiFace {
         let mut y = margin;
         let bar_chars = if portrait { 10 } else { 16 };
 
-        let is_enabled = |id: &str, default: bool| complications.is_enabled(self.name(), id, default);
+        let is_enabled = |id: &str| complications.is_enabled(self.name(), id, true);
+
+        // Get time format option
+        let time_format = complications
+            .get_option(self.name(), complications::TIME, complication_options::TIME_FORMAT)
+            .map(|s| s.as_str())
+            .unwrap_or(time_formats::DIGITAL_24H);
+
+        // Get date format option
+        let date_format = complications
+            .get_option(self.name(), complications::DATE, complication_options::DATE_FORMAT)
+            .map(|s| s.as_str())
+            .unwrap_or(date_formats::HIDDEN);
 
         if portrait {
             // Portrait layout
-            if is_enabled(complications::HOSTNAME, true) {
-                canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
+            // Hostname (always shown)
+            canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
+
+            // Complication: Time
+            if is_enabled(complications::TIME) && time_format != time_formats::ANALOGUE {
+                let time_str = data.format_time(time_format);
+                let time_width = canvas.text_width(&time_str, FONT_LARGE);
+                canvas.draw_text(width as i32 - margin - time_width, y, &time_str, FONT_LARGE, colors.text);
             }
-            if is_enabled(complications::TIME, true) {
-                let time_width = canvas.text_width(&data.time, FONT_LARGE);
-                canvas.draw_text(width as i32 - margin - time_width, y, &data.time, FONT_LARGE, colors.text);
-            }
-            if is_enabled(complications::HOSTNAME, true) || is_enabled(complications::TIME, true) {
-                y += canvas.line_height(FONT_LARGE) + 2;
+            y += canvas.line_height(FONT_LARGE) + 2;
+
+            // Complication: Date (if not hidden)
+            if is_enabled(complications::DATE) {
+                if let Some(date_str) = data.format_date(date_format) {
+                    canvas.draw_text(margin, y, &date_str, FONT_SMALL, colors.dim);
+                    y += canvas.line_height(FONT_SMALL) + 2;
+                }
             }
 
-            if is_enabled(complications::UPTIME, true) {
-                let uptime_text = format!("Up: {}", data.uptime);
-                canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.dim);
-                y += canvas.line_height(FONT_SMALL) + 2;
-            }
+            // Base element: Uptime (always shown)
+            let uptime_text = format!("Up: {}", data.uptime);
+            canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.dim);
+            y += canvas.line_height(FONT_SMALL) + 2;
 
-            if is_enabled(complications::IP_ADDRESS, true) {
+            // Complication: IP address
+            if is_enabled(complications::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     let max_width = width as i32 - margin * 2;
                     let ip_width = canvas.text_width(ip, FONT_SMALL);
@@ -168,7 +253,8 @@ impl Face for AsciiFace {
                 }
             }
 
-            if is_enabled(complications::CPU_TEMP, true) {
+            // Complication: CPU temperature
+            if is_enabled(complications::CPU_TEMP) {
                 if let Some(temp) = data.cpu_temp {
                     let temp_text = format!("Temp: {:.0}°C", temp);
                     canvas.draw_text(margin, y, &temp_text, FONT_SMALL, colors.dim);
@@ -178,21 +264,20 @@ impl Face for AsciiFace {
                 }
             }
 
-            if is_enabled(complications::CPU, true) {
-                let cpu_bar = ascii_bar(data.cpu_percent, bar_chars);
-                let cpu_text = format!("CPU {} {:2.0}%", cpu_bar, data.cpu_percent);
-                canvas.draw_text(margin, y, &cpu_text, FONT_SMALL, colors.text);
-                y += canvas.line_height(FONT_SMALL) + 2;
-            }
+            // Base element: CPU bar (always shown)
+            let cpu_bar = ascii_bar(data.cpu_percent, bar_chars);
+            let cpu_text = format!("CPU {} {:2.0}%", cpu_bar, data.cpu_percent);
+            canvas.draw_text(margin, y, &cpu_text, FONT_SMALL, colors.text);
+            y += canvas.line_height(FONT_SMALL) + 2;
 
-            if is_enabled(complications::RAM, true) {
-                let ram_bar = ascii_bar(data.ram_percent, bar_chars);
-                let ram_text = format!("RAM {} {:2.0}%", ram_bar, data.ram_percent);
-                canvas.draw_text(margin, y, &ram_text, FONT_SMALL, colors.text);
-                y += canvas.line_height(FONT_SMALL) + 4;
-            }
+            // Base element: RAM bar (always shown)
+            let ram_bar = ascii_bar(data.ram_percent, bar_chars);
+            let ram_text = format!("RAM {} {:2.0}%", ram_bar, data.ram_percent);
+            canvas.draw_text(margin, y, &ram_text, FONT_SMALL, colors.text);
+            y += canvas.line_height(FONT_SMALL) + 4;
 
-            if is_enabled(complications::DISK_IO, true) {
+            // Complication: Disk I/O
+            if is_enabled(complications::DISK_IO) {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 canvas.draw_text(margin, y, &format!("DSK R:{} W:{}", disk_r, disk_w), FONT_SMALL, colors.text);
@@ -202,7 +287,8 @@ impl Face for AsciiFace {
                 y += GRAPH_HEIGHT as i32 + 4;
             }
 
-            if is_enabled(complications::NETWORK, true) {
+            // Complication: Network
+            if is_enabled(complications::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 canvas.draw_text(margin, y, &format!("NET D:{} U:{}", net_rx, net_tx), FONT_SMALL, colors.text);
@@ -212,24 +298,32 @@ impl Face for AsciiFace {
             }
         } else {
             // Landscape layout
-            if is_enabled(complications::HOSTNAME, true) {
-                canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
+            // Hostname (always shown)
+            canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
+
+            // Complication: Time
+            if is_enabled(complications::TIME) && time_format != time_formats::ANALOGUE {
+                let time_str = data.format_time(time_format);
+                let time_width = canvas.text_width(&time_str, FONT_LARGE);
+                canvas.draw_text(width as i32 - margin - time_width, y, &time_str, FONT_LARGE, colors.text);
             }
-            if is_enabled(complications::TIME, true) {
-                let time_width = canvas.text_width(&data.time, FONT_LARGE);
-                canvas.draw_text(width as i32 - margin - time_width, y, &data.time, FONT_LARGE, colors.text);
-            }
-            if is_enabled(complications::HOSTNAME, true) || is_enabled(complications::TIME, true) {
-                y += canvas.line_height(FONT_LARGE) + 2;
+            y += canvas.line_height(FONT_LARGE) + 2;
+
+            // Complication: Date (if not hidden)
+            if is_enabled(complications::DATE) {
+                if let Some(date_str) = data.format_date(date_format) {
+                    canvas.draw_text(margin, y, &date_str, FONT_NORMAL, colors.dim);
+                    y += canvas.line_height(FONT_NORMAL) + 2;
+                }
             }
 
-            if is_enabled(complications::UPTIME, true) {
-                let uptime_text = format!("Up: {}", data.uptime);
-                canvas.draw_text(margin, y, &uptime_text, FONT_NORMAL, colors.dim);
-                y += canvas.line_height(FONT_NORMAL) + 2;
-            }
+            // Base element: Uptime (always shown)
+            let uptime_text = format!("Up: {}", data.uptime);
+            canvas.draw_text(margin, y, &uptime_text, FONT_NORMAL, colors.dim);
+            y += canvas.line_height(FONT_NORMAL) + 2;
 
-            if is_enabled(complications::IP_ADDRESS, true) {
+            // Complication: IP address
+            if is_enabled(complications::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     canvas.draw_text(margin, y, ip, FONT_SMALL, colors.dim);
                     y += canvas.line_height(FONT_SMALL) + 6;
@@ -238,29 +332,28 @@ impl Face for AsciiFace {
                 }
             }
 
-            if is_enabled(complications::CPU, true) {
-                let cpu_bar = ascii_bar(data.cpu_percent, bar_chars);
-                let cpu_text = if is_enabled(complications::CPU_TEMP, true) {
-                    if let Some(temp) = data.cpu_temp {
-                        format!("CPU {} {:3.0}%  {:.0}°C", cpu_bar, data.cpu_percent, temp)
-                    } else {
-                        format!("CPU {} {:3.0}%", cpu_bar, data.cpu_percent)
-                    }
+            // Base element: CPU bar with optional temperature (always shown)
+            let cpu_bar = ascii_bar(data.cpu_percent, bar_chars);
+            let cpu_text = if is_enabled(complications::CPU_TEMP) {
+                if let Some(temp) = data.cpu_temp {
+                    format!("CPU {} {:3.0}%  {:.0}°C", cpu_bar, data.cpu_percent, temp)
                 } else {
                     format!("CPU {} {:3.0}%", cpu_bar, data.cpu_percent)
-                };
-                canvas.draw_text(margin, y, &cpu_text, FONT_NORMAL, colors.text);
-                y += canvas.line_height(FONT_NORMAL) + 2;
-            }
+                }
+            } else {
+                format!("CPU {} {:3.0}%", cpu_bar, data.cpu_percent)
+            };
+            canvas.draw_text(margin, y, &cpu_text, FONT_NORMAL, colors.text);
+            y += canvas.line_height(FONT_NORMAL) + 2;
 
-            if is_enabled(complications::RAM, true) {
-                let ram_bar = ascii_bar(data.ram_percent, bar_chars);
-                let ram_text = format!("RAM {} {:3.0}%", ram_bar, data.ram_percent);
-                canvas.draw_text(margin, y, &ram_text, FONT_NORMAL, colors.text);
-                y += canvas.line_height(FONT_NORMAL) + 4;
-            }
+            // Base element: RAM bar (always shown)
+            let ram_bar = ascii_bar(data.ram_percent, bar_chars);
+            let ram_text = format!("RAM {} {:3.0}%", ram_bar, data.ram_percent);
+            canvas.draw_text(margin, y, &ram_text, FONT_NORMAL, colors.text);
+            y += canvas.line_height(FONT_NORMAL) + 4;
 
-            if is_enabled(complications::DISK_IO, true) {
+            // Complication: Disk I/O
+            if is_enabled(complications::DISK_IO) {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 canvas.draw_text(margin, y, "DSK", FONT_NORMAL, colors.text);
@@ -271,7 +364,8 @@ impl Face for AsciiFace {
                 y += GRAPH_HEIGHT as i32 + 3;
             }
 
-            if is_enabled(complications::NETWORK, true) {
+            // Complication: Network
+            if is_enabled(complications::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 canvas.draw_text(margin, y, "NET", FONT_NORMAL, colors.text);

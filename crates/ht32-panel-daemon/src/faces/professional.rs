@@ -13,7 +13,10 @@
 //! enp2s0: 192.168.1.100
 //! ```
 
-use super::{complications, Complication, EnabledComplications, Face, Theme};
+use super::{
+    complication_options, complications, date_formats, time_formats, Complication,
+    ComplicationChoice, ComplicationOption, EnabledComplications, Face, Theme,
+};
 use crate::rendering::Canvas;
 use crate::sensors::data::SystemData;
 
@@ -125,47 +128,74 @@ impl Face for ProfessionalFace {
 
     fn available_complications(&self) -> Vec<Complication> {
         vec![
-            Complication::new(
-                complications::HOSTNAME,
-                "Hostname",
-                "Display the system hostname",
-                true,
-            ),
-            Complication::new(
+            Complication::with_options(
                 complications::TIME,
                 "Time",
                 "Display the current time",
                 true,
+                vec![ComplicationOption::choice(
+                    complication_options::TIME_FORMAT,
+                    "Format",
+                    "Time display format",
+                    vec![
+                        ComplicationChoice::new(time_formats::DIGITAL_24H, "Digital (24h)"),
+                        ComplicationChoice::new(time_formats::DIGITAL_12H, "Digital (12h)"),
+                        ComplicationChoice::new(time_formats::ANALOGUE, "Analogue"),
+                    ],
+                    time_formats::DIGITAL_24H,
+                )],
             ),
-            Complication::new(
-                complications::UPTIME,
-                "Uptime",
-                "Display system uptime",
+            Complication::with_options(
+                complications::DATE,
+                "Date",
+                "Display the current date",
                 true,
+                vec![ComplicationOption::choice(
+                    complication_options::DATE_FORMAT,
+                    "Format",
+                    "Date display format",
+                    vec![
+                        ComplicationChoice::new(date_formats::HIDDEN, "Hidden"),
+                        ComplicationChoice::new(date_formats::ISO, "ISO (2024-01-15)"),
+                        ComplicationChoice::new(date_formats::US, "US (01/15/2024)"),
+                        ComplicationChoice::new(date_formats::EU, "EU (15/01/2024)"),
+                        ComplicationChoice::new(date_formats::SHORT, "Short (Jan 15)"),
+                        ComplicationChoice::new(date_formats::LONG, "Long (January 15, 2024)"),
+                        ComplicationChoice::new(date_formats::WEEKDAY, "Weekday (Mon, Jan 15)"),
+                    ],
+                    date_formats::HIDDEN,
+                )],
             ),
-            Complication::new(
+            Complication::with_options(
                 complications::IP_ADDRESS,
                 "IP Address",
                 "Display network IP address",
                 true,
+                vec![ComplicationOption::choice(
+                    complication_options::IP_TYPE,
+                    "IP Type",
+                    "Type of IP address to display",
+                    vec![
+                        ComplicationChoice::new("ipv6-gua", "IPv6 Global"),
+                        ComplicationChoice::new("ipv6-lla", "IPv6 Link-Local"),
+                        ComplicationChoice::new("ipv6-ula", "IPv6 ULA"),
+                        ComplicationChoice::new("ipv4", "IPv4"),
+                    ],
+                    "ipv6-gua",
+                )],
             ),
-            Complication::new(
-                complications::CPU,
-                "CPU",
-                "Display CPU usage bar",
+            Complication::with_options(
+                complications::NETWORK,
+                "Network",
+                "Display network activity graph",
                 true,
-            ),
-            Complication::new(
-                complications::CPU_TEMP,
-                "CPU Temperature",
-                "Display CPU temperature",
-                true,
-            ),
-            Complication::new(
-                complications::RAM,
-                "RAM",
-                "Display RAM usage bar",
-                true,
+                vec![ComplicationOption::choice(
+                    complication_options::INTERFACE,
+                    "Interface",
+                    "Network interface to monitor",
+                    vec![ComplicationChoice::new("auto", "Auto-detect")],
+                    "auto",
+                )],
             ),
             Complication::new(
                 complications::DISK_IO,
@@ -174,9 +204,9 @@ impl Face for ProfessionalFace {
                 true,
             ),
             Complication::new(
-                complications::NETWORK,
-                "Network",
-                "Display network activity graph",
+                complications::CPU_TEMP,
+                "CPU Temperature",
+                "Display CPU temperature",
                 true,
             ),
         ]
@@ -196,42 +226,59 @@ impl Face for ProfessionalFace {
         let mut y = margin;
 
         // Helper to check if a complication is enabled
-        let is_enabled = |id: &str, default: bool| -> bool {
-            complications.is_enabled(self.name(), id, default)
+        let is_enabled = |id: &str| -> bool {
+            complications.is_enabled(self.name(), id, true)
         };
+
+        // Get time format option
+        let time_format = complications
+            .get_option(self.name(), complications::TIME, complication_options::TIME_FORMAT)
+            .map(|s| s.as_str())
+            .unwrap_or(time_formats::DIGITAL_24H);
+
+        // Get date format option
+        let date_format = complications
+            .get_option(self.name(), complications::DATE, complication_options::DATE_FORMAT)
+            .map(|s| s.as_str())
+            .unwrap_or(date_formats::HIDDEN);
 
         if portrait {
             // Portrait layout - narrower bars, stacked text
             let bar_width = (width as i32 - margin * 2 - 60) as u32;
             let bar_x = margin + 32;
 
-            // Hostname and time on top row
-            if is_enabled(complications::HOSTNAME, true) {
-                canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
-            }
-            if is_enabled(complications::TIME, true) {
-                let time_width = canvas.text_width(&data.time, FONT_LARGE);
+            // Hostname (always shown)
+            canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
+
+            // Complication: Time
+            if is_enabled(complications::TIME) && time_format != time_formats::ANALOGUE {
+                let time_str = data.format_time(time_format);
+                let time_width = canvas.text_width(&time_str, FONT_LARGE);
                 canvas.draw_text(
                     width as i32 - margin - time_width,
                     y,
-                    &data.time,
+                    &time_str,
                     FONT_LARGE,
                     colors.text,
                 );
             }
-            if is_enabled(complications::HOSTNAME, true) || is_enabled(complications::TIME, true) {
-                y += canvas.line_height(FONT_LARGE) + 2;
+            y += canvas.line_height(FONT_LARGE) + 2;
+
+            // Complication: Date (if not hidden)
+            if is_enabled(complications::DATE) {
+                if let Some(date_str) = data.format_date(date_format) {
+                    canvas.draw_text(margin, y, &date_str, FONT_SMALL, colors.dim);
+                    y += canvas.line_height(FONT_SMALL) + 2;
+                }
             }
 
-            // Uptime
-            if is_enabled(complications::UPTIME, true) {
-                let uptime_text = format!("Up: {}", data.uptime);
-                canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.dim);
-                y += canvas.line_height(FONT_SMALL) + 2;
-            }
+            // Base element: Uptime (always shown)
+            let uptime_text = format!("Up: {}", data.uptime);
+            canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.dim);
+            y += canvas.line_height(FONT_SMALL) + 2;
 
-            // IP address under uptime
-            if is_enabled(complications::IP_ADDRESS, true) {
+            // Complication: IP address
+            if is_enabled(complications::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     let max_width = width as i32 - margin * 2;
                     let ip_width = canvas.text_width(ip, FONT_SMALL);
@@ -250,8 +297,8 @@ impl Face for ProfessionalFace {
                 }
             }
 
-            // CPU temperature
-            if is_enabled(complications::CPU_TEMP, true) {
+            // Complication: CPU temperature
+            if is_enabled(complications::CPU_TEMP) {
                 if let Some(temp) = data.cpu_temp {
                     let temp_text = format!("Temp: {:.0}°C", temp);
                     canvas.draw_text(margin, y, &temp_text, FONT_SMALL, colors.dim);
@@ -261,56 +308,52 @@ impl Face for ProfessionalFace {
                 }
             }
 
-            // CPU bar
-            if is_enabled(complications::CPU, true) {
-                canvas.draw_text(margin, y, "CPU", FONT_SMALL, colors.text);
-                Self::draw_progress_bar(
-                    canvas,
-                    bar_x,
-                    y + 1,
-                    bar_width,
-                    BAR_HEIGHT,
-                    data.cpu_percent,
-                    colors.bar_cpu,
-                    colors.bar_bg,
-                );
-                let cpu_pct = format!("{:2.0}%", data.cpu_percent);
-                canvas.draw_text(
-                    bar_x + bar_width as i32 + 4,
-                    y,
-                    &cpu_pct,
-                    FONT_SMALL,
-                    colors.text,
-                );
-                y += canvas.line_height(FONT_SMALL) + 3;
-            }
+            // Base element: CPU bar (always shown)
+            canvas.draw_text(margin, y, "CPU", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                bar_width,
+                BAR_HEIGHT,
+                data.cpu_percent,
+                colors.bar_cpu,
+                colors.bar_bg,
+            );
+            let cpu_pct = format!("{:2.0}%", data.cpu_percent);
+            canvas.draw_text(
+                bar_x + bar_width as i32 + 4,
+                y,
+                &cpu_pct,
+                FONT_SMALL,
+                colors.text,
+            );
+            y += canvas.line_height(FONT_SMALL) + 3;
 
-            // RAM bar
-            if is_enabled(complications::RAM, true) {
-                canvas.draw_text(margin, y, "RAM", FONT_SMALL, colors.text);
-                Self::draw_progress_bar(
-                    canvas,
-                    bar_x,
-                    y + 1,
-                    bar_width,
-                    BAR_HEIGHT,
-                    data.ram_percent,
-                    colors.bar_ram,
-                    colors.bar_bg,
-                );
-                let ram_pct = format!("{:2.0}%", data.ram_percent);
-                canvas.draw_text(
-                    bar_x + bar_width as i32 + 4,
-                    y,
-                    &ram_pct,
-                    FONT_SMALL,
-                    colors.text,
-                );
-                y += canvas.line_height(FONT_SMALL) + 3;
-            }
+            // Base element: RAM bar (always shown)
+            canvas.draw_text(margin, y, "RAM", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                bar_width,
+                BAR_HEIGHT,
+                data.ram_percent,
+                colors.bar_ram,
+                colors.bar_bg,
+            );
+            let ram_pct = format!("{:2.0}%", data.ram_percent);
+            canvas.draw_text(
+                bar_x + bar_width as i32 + 4,
+                y,
+                &ram_pct,
+                FONT_SMALL,
+                colors.text,
+            );
+            y += canvas.line_height(FONT_SMALL) + 3;
 
-            // Disk I/O graph
-            if is_enabled(complications::DISK_IO, true) {
+            // Complication: Disk I/O graph
+            if is_enabled(complications::DISK_IO) {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 canvas.draw_text(
@@ -334,8 +377,8 @@ impl Face for ProfessionalFace {
                 y += GRAPH_HEIGHT as i32 + 4;
             }
 
-            // Network I/O graph
-            if is_enabled(complications::NETWORK, true) {
+            // Complication: Network I/O graph
+            if is_enabled(complications::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 canvas.draw_text(
@@ -359,33 +402,38 @@ impl Face for ProfessionalFace {
             }
         } else {
             // Landscape layout
-            // Hostname and time on top row
-            if is_enabled(complications::HOSTNAME, true) {
-                canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
-            }
-            if is_enabled(complications::TIME, true) {
-                let time_width = canvas.text_width(&data.time, FONT_LARGE);
+            // Hostname (always shown)
+            canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
+
+            // Complication: Time
+            if is_enabled(complications::TIME) && time_format != time_formats::ANALOGUE {
+                let time_str = data.format_time(time_format);
+                let time_width = canvas.text_width(&time_str, FONT_LARGE);
                 canvas.draw_text(
                     width as i32 - margin - time_width,
                     y,
-                    &data.time,
+                    &time_str,
                     FONT_LARGE,
                     colors.text,
                 );
             }
-            if is_enabled(complications::HOSTNAME, true) || is_enabled(complications::TIME, true) {
-                y += canvas.line_height(FONT_LARGE) + 2;
+            y += canvas.line_height(FONT_LARGE) + 2;
+
+            // Complication: Date (if not hidden)
+            if is_enabled(complications::DATE) {
+                if let Some(date_str) = data.format_date(date_format) {
+                    canvas.draw_text(margin, y, &date_str, FONT_NORMAL, colors.dim);
+                    y += canvas.line_height(FONT_NORMAL) + 2;
+                }
             }
 
-            // Uptime
-            if is_enabled(complications::UPTIME, true) {
-                let uptime_text = format!("Uptime: {}", data.uptime);
-                canvas.draw_text(margin, y, &uptime_text, FONT_NORMAL, colors.dim);
-                y += canvas.line_height(FONT_NORMAL) + 2;
-            }
+            // Base element: Uptime (always shown)
+            let uptime_text = format!("Uptime: {}", data.uptime);
+            canvas.draw_text(margin, y, &uptime_text, FONT_NORMAL, colors.dim);
+            y += canvas.line_height(FONT_NORMAL) + 2;
 
-            // IP address
-            if is_enabled(complications::IP_ADDRESS, true) {
+            // Complication: IP address
+            if is_enabled(complications::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     canvas.draw_text(margin, y, ip, FONT_SMALL, colors.dim);
                     y += canvas.line_height(FONT_SMALL) + 4;
@@ -396,69 +444,65 @@ impl Face for ProfessionalFace {
 
             let bar_x = margin + 35;
 
-            // CPU bar with temperature
-            if is_enabled(complications::CPU, true) {
-                canvas.draw_text(margin, y, "CPU", FONT_SMALL, colors.text);
-                Self::draw_progress_bar(
-                    canvas,
-                    bar_x,
-                    y + 1,
-                    BAR_WIDTH,
-                    BAR_HEIGHT,
-                    data.cpu_percent,
-                    colors.bar_cpu,
-                    colors.bar_bg,
-                );
-                let cpu_percent = format!("{:3.0}%", data.cpu_percent);
-                canvas.draw_text(
-                    bar_x + BAR_WIDTH as i32 + 6,
-                    y,
-                    &cpu_percent,
-                    FONT_SMALL,
-                    colors.text,
-                );
-                // Temperature on same line (landscape)
-                if is_enabled(complications::CPU_TEMP, true) {
-                    if let Some(temp) = data.cpu_temp {
-                        let temp_text = format!("{:.0}°C", temp);
-                        canvas.draw_text(
-                            bar_x + BAR_WIDTH as i32 + 50,
-                            y,
-                            &temp_text,
-                            FONT_SMALL,
-                            colors.dim,
-                        );
-                    }
+            // Base element: CPU bar with optional temperature (always shown)
+            canvas.draw_text(margin, y, "CPU", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                BAR_WIDTH,
+                BAR_HEIGHT,
+                data.cpu_percent,
+                colors.bar_cpu,
+                colors.bar_bg,
+            );
+            let cpu_percent = format!("{:3.0}%", data.cpu_percent);
+            canvas.draw_text(
+                bar_x + BAR_WIDTH as i32 + 6,
+                y,
+                &cpu_percent,
+                FONT_SMALL,
+                colors.text,
+            );
+            // Complication: Temperature on same line (landscape)
+            if is_enabled(complications::CPU_TEMP) {
+                if let Some(temp) = data.cpu_temp {
+                    let temp_text = format!("{:.0}°C", temp);
+                    canvas.draw_text(
+                        bar_x + BAR_WIDTH as i32 + 50,
+                        y,
+                        &temp_text,
+                        FONT_SMALL,
+                        colors.dim,
+                    );
                 }
-                y += canvas.line_height(FONT_SMALL) + 3;
             }
+            y += canvas.line_height(FONT_SMALL) + 3;
 
-            // RAM bar
-            if is_enabled(complications::RAM, true) {
-                canvas.draw_text(margin, y, "RAM", FONT_SMALL, colors.text);
-                Self::draw_progress_bar(
-                    canvas,
-                    bar_x,
-                    y + 1,
-                    BAR_WIDTH,
-                    BAR_HEIGHT,
-                    data.ram_percent,
-                    colors.bar_ram,
-                    colors.bar_bg,
-                );
-                let ram_percent = format!("{:3.0}%", data.ram_percent);
-                canvas.draw_text(
-                    bar_x + BAR_WIDTH as i32 + 6,
-                    y,
-                    &ram_percent,
-                    FONT_SMALL,
-                    colors.text,
-                );
-                y += canvas.line_height(FONT_SMALL) + 3;
-            }
+            // Base element: RAM bar (always shown)
+            canvas.draw_text(margin, y, "RAM", FONT_SMALL, colors.text);
+            Self::draw_progress_bar(
+                canvas,
+                bar_x,
+                y + 1,
+                BAR_WIDTH,
+                BAR_HEIGHT,
+                data.ram_percent,
+                colors.bar_ram,
+                colors.bar_bg,
+            );
+            let ram_percent = format!("{:3.0}%", data.ram_percent);
+            canvas.draw_text(
+                bar_x + BAR_WIDTH as i32 + 6,
+                y,
+                &ram_percent,
+                FONT_SMALL,
+                colors.text,
+            );
+            y += canvas.line_height(FONT_SMALL) + 3;
 
-            // Disk I/O graph
-            if is_enabled(complications::DISK_IO, true) {
+            // Complication: Disk I/O graph
+            if is_enabled(complications::DISK_IO) {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 canvas.draw_text(margin, y, "DSK", FONT_SMALL, colors.text);
@@ -483,8 +527,8 @@ impl Face for ProfessionalFace {
                 y += GRAPH_HEIGHT as i32 + 3;
             }
 
-            // Network I/O graph
-            if is_enabled(complications::NETWORK, true) {
+            // Complication: Network I/O graph
+            if is_enabled(complications::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 canvas.draw_text(margin, y, "NET", FONT_SMALL, colors.text);
