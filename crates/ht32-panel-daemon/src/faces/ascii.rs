@@ -57,8 +57,8 @@ impl FaceColors {
         Self {
             highlight: theme.primary,
             text: theme.text,
-            dim: dim_color(theme.text, theme.background, 0.5),
-            bar_bg: dim_color(theme.primary, theme.background, 0.15),
+            dim: dim_color(theme.text, theme.background, 0.7), // Higher for better contrast
+            bar_bg: dim_color(theme.primary, theme.background, 0.2),
             bar_disk: dim_color(theme.primary, theme.secondary, 0.5),
             bar_net: theme.secondary,
         }

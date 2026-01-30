@@ -47,18 +47,18 @@ impl FaceColors {
         Self {
             primary: theme.primary,
             secondary: theme.secondary,
-            arc_bg: dim_color(theme.primary, theme.background, 0.2),
+            arc_bg: dim_color(theme.primary, theme.background, 0.25),
             text: theme.text,
-            dim: dim_color(theme.text, theme.background, 0.5),
+            dim: dim_color(theme.text, theme.background, 0.7), // Higher factor for better contrast
         }
     }
 }
 
 /// Font sizes.
-const FONT_LARGE: f32 = 16.0;
+const FONT_LARGE: f32 = 18.0;
 const FONT_NORMAL: f32 = 14.0;
-const FONT_SMALL: f32 = 11.0;
-const FONT_TINY: f32 = 9.0;
+const FONT_SMALL: f32 = 12.0;
+const FONT_TINY: f32 = 11.0;
 
 /// A face using circular arc gauges for all metrics.
 pub struct ArcsFace;

@@ -42,9 +42,9 @@ impl FaceColors {
     fn from_theme(theme: &Theme) -> Self {
         Self {
             segment_on: theme.primary,
-            segment_off: dim_color(theme.primary, theme.background, 0.15),
-            label: dim_color(theme.text, theme.background, 0.6),
-            divider: dim_color(theme.primary, theme.background, 0.3),
+            segment_off: dim_color(theme.primary, theme.background, 0.2),
+            label: dim_color(theme.text, theme.background, 0.7), // Higher for better contrast
+            divider: dim_color(theme.primary, theme.background, 0.35),
         }
     }
 }
