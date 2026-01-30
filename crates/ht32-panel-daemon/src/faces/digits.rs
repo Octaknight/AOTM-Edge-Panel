@@ -298,18 +298,16 @@ impl Face for DigitsFace {
                 FONT_SMALL,
                 colors.label,
             );
-            y += canvas.line_height(FONT_SMALL) + 2;
+            y += canvas.line_height(FONT_SMALL) + 6;
 
             // Complication: IP address
             if is_on(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
-                    let max_chars = if width < 150 { 20 } else { 30 };
-                    let ip_display = if ip.len() > max_chars {
-                        format!("{}...", &ip[..max_chars - 3])
-                    } else {
-                        ip.clone()
-                    };
-                    canvas.draw_text(margin, y, &ip_display, FONT_MEDIUM, colors.label);
+                    // IP label
+                    canvas.draw_text(margin, y, "IP:", FONT_SMALL, colors.label);
+                    y += canvas.line_height(FONT_SMALL);
+                    // IP address on next line, smaller font to fit
+                    canvas.draw_text(margin, y, ip, FONT_SMALL, colors.label);
                 }
             }
         } else {

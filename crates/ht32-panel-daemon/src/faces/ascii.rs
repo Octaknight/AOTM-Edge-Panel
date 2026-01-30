@@ -277,7 +277,7 @@ impl Face for AsciiFace {
                     } else {
                         canvas.draw_text(margin, y, ip, FONT_SMALL, colors.text);
                     }
-                    y += line_height + section_spacing;
+                    y += line_height + section_spacing * 2;
                 }
             }
 

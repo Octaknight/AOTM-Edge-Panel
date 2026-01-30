@@ -490,8 +490,8 @@ impl Face for ArcsFace {
                 );
             }
 
-            // Bottom text: hostname on its own line at top, uptime left and IP right below
-            let bottom_y = height as i32 - margin - 34;
+            // Bottom text: hostname, uptime, and IP on separate lines
+            let bottom_y = height as i32 - margin - 46;
 
             // Hostname centered on its own line
             let host_width = canvas.text_width(&data.hostname, FONT_TINY);
@@ -503,20 +503,14 @@ impl Face for ArcsFace {
                 colors.dim,
             );
 
-            // Uptime on left, IP on right (below hostname)
+            // Uptime on its own line
             let uptime_text = format!("Up: {}", data.uptime);
             canvas.draw_text(margin, bottom_y + 12, &uptime_text, FONT_TINY, colors.dim);
 
+            // IP on the next line
             if is_on(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
-                    let ip_width = canvas.text_width(ip, FONT_TINY);
-                    canvas.draw_text(
-                        width as i32 - margin - ip_width,
-                        bottom_y + 12,
-                        ip,
-                        FONT_TINY,
-                        colors.dim,
-                    );
+                    canvas.draw_text(margin, bottom_y + 24, ip, FONT_TINY, colors.dim);
                 }
             }
         } else {
