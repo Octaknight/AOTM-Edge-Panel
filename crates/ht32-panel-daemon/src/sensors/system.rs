@@ -1,7 +1,7 @@
 //! System information sensor for hostname, uptime, and time.
 
+use chrono::{Datelike, Local, Timelike};
 use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// System information provider.
 pub struct SystemInfo;
@@ -32,33 +32,18 @@ impl SystemInfo {
     /// Day of week: 0=Sunday, 1=Monday, ..., 6=Saturday.
     /// Uses the system's local timezone.
     pub fn time_components(&self) -> (u8, u8, u8, u8, u16, u8, u64) {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default();
-        let secs = now.as_secs();
+        let now = Local::now();
 
-        // Use libc's localtime_r to get proper local time with timezone/DST handling
-        let time_t = secs as libc::time_t;
-        let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+        let hours = now.hour() as u8;
+        let minutes = now.minute() as u8;
+        let day = now.day() as u8;
+        let month = now.month() as u8;
+        let year = now.year() as u16;
+        // chrono: Mon=0, Tue=1, ..., Sun=6; we need Sun=0, Mon=1, ..., Sat=6
+        let day_of_week = (now.weekday().num_days_from_sunday()) as u8;
+        let timestamp = now.timestamp() as u64;
 
-        // SAFETY: localtime_r is thread-safe and we provide a valid pointer
-        let result = unsafe { libc::localtime_r(&time_t, &mut tm) };
-
-        if result.is_null() {
-            // Fallback to UTC if localtime_r fails
-            let hours = ((secs % 86400) / 3600) as u8;
-            let minutes = ((secs % 3600) / 60) as u8;
-            return (hours, minutes, 1, 1, 1970, 0, secs);
-        }
-
-        let hours = tm.tm_hour as u8;
-        let minutes = tm.tm_min as u8;
-        let day = tm.tm_mday as u8;
-        let month = (tm.tm_mon + 1) as u8; // tm_mon is 0-11
-        let year = (tm.tm_year + 1900) as u16; // tm_year is years since 1900
-        let day_of_week = tm.tm_wday as u8; // 0=Sunday
-
-        (hours, minutes, day, month, year, day_of_week, secs)
+        (hours, minutes, day, month, year, day_of_week, timestamp)
     }
 
     /// Returns the system uptime formatted as "Xd Yh Zm".
