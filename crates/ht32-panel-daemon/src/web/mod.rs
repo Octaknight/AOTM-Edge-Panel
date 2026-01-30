@@ -411,25 +411,23 @@ async fn complications_get(State(state): State<Arc<AppState>>) -> impl IntoRespo
                                 range: None,
                             }
                         }
-                        ComplicationOptionType::Boolean => {
-                            ComplicationOptionItem {
-                                id: opt.id.clone(),
-                                name: opt.name.clone(),
-                                current_value,
-                                is_range: false,
-                                choices: vec![
-                                    ComplicationOptionChoice {
-                                        value: "true".to_string(),
-                                        label: "Yes".to_string(),
-                                    },
-                                    ComplicationOptionChoice {
-                                        value: "false".to_string(),
-                                        label: "No".to_string(),
-                                    },
-                                ],
-                                range: None,
-                            }
-                        }
+                        ComplicationOptionType::Boolean => ComplicationOptionItem {
+                            id: opt.id.clone(),
+                            name: opt.name.clone(),
+                            current_value,
+                            is_range: false,
+                            choices: vec![
+                                ComplicationOptionChoice {
+                                    value: "true".to_string(),
+                                    label: "Yes".to_string(),
+                                },
+                                ComplicationOptionChoice {
+                                    value: "false".to_string(),
+                                    label: "No".to_string(),
+                                },
+                            ],
+                            range: None,
+                        },
                         ComplicationOptionType::Range { min, max, step } => {
                             ComplicationOptionItem {
                                 id: opt.id.clone(),
@@ -559,25 +557,23 @@ fn render_complications(state: &Arc<AppState>) -> Html<String> {
                                 range: None,
                             }
                         }
-                        ComplicationOptionType::Boolean => {
-                            ComplicationOptionItem {
-                                id: opt.id.clone(),
-                                name: opt.name.clone(),
-                                current_value,
-                                is_range: false,
-                                choices: vec![
-                                    ComplicationOptionChoice {
-                                        value: "true".to_string(),
-                                        label: "Yes".to_string(),
-                                    },
-                                    ComplicationOptionChoice {
-                                        value: "false".to_string(),
-                                        label: "No".to_string(),
-                                    },
-                                ],
-                                range: None,
-                            }
-                        }
+                        ComplicationOptionType::Boolean => ComplicationOptionItem {
+                            id: opt.id.clone(),
+                            name: opt.name.clone(),
+                            current_value,
+                            is_range: false,
+                            choices: vec![
+                                ComplicationOptionChoice {
+                                    value: "true".to_string(),
+                                    label: "Yes".to_string(),
+                                },
+                                ComplicationOptionChoice {
+                                    value: "false".to_string(),
+                                    label: "No".to_string(),
+                                },
+                            ],
+                            range: None,
+                        },
                         ComplicationOptionType::Range { min, max, step } => {
                             ComplicationOptionItem {
                                 id: opt.id.clone(),

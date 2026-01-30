@@ -397,7 +397,10 @@ async fn handle_complication(action: ComplicationCommands, client: &DaemonClient
                                         opt_id, opt_name, current, min, max, step
                                     );
                                 } else {
-                                    println!("      - {}: {} (current: {})", opt_id, opt_name, current);
+                                    println!(
+                                        "      - {}: {} (current: {})",
+                                        opt_id, opt_name, current
+                                    );
                                 }
                             }
                         }

@@ -172,7 +172,7 @@ impl ComplicationChoice {
 }
 
 /// An option that can be configured for a complication.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ComplicationOption {
     /// Unique identifier for this option.
     pub id: String,
@@ -225,7 +225,7 @@ impl ComplicationOption {
 }
 
 /// A complication is an optional display element that can be enabled or disabled.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Complication {
     /// Unique identifier for this complication.
     pub id: String,
@@ -435,10 +435,10 @@ pub mod complications {
                 complication_options::SIZE,
                 "Size",
                 "Size of the digital clock display",
-                32.0,  // min (current default)
-                96.0,  // max (large enough to fill screen)
-                4.0,   // step
-                32.0,  // default
+                32.0, // min (current default)
+                96.0, // max (large enough to fill screen)
+                4.0,  // step
+                32.0, // default
             )],
         )
     }

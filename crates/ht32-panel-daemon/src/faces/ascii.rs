@@ -314,7 +314,13 @@ impl Face for AsciiFace {
                     SystemData::compute_graph_scale(&data.disk_history),
                     bar_width,
                 );
-                canvas.draw_text(margin, y, &format!("[{}]", sparkline), FONT_SMALL, colors.bar_disk);
+                canvas.draw_text(
+                    margin,
+                    y,
+                    &format!("[{}]", sparkline),
+                    FONT_SMALL,
+                    colors.bar_disk,
+                );
                 y += line_height + 1;
             }
 
@@ -338,7 +344,13 @@ impl Face for AsciiFace {
                     SystemData::compute_graph_scale(&data.net_history),
                     bar_width,
                 );
-                canvas.draw_text(margin, y, &format!("[{}]", sparkline), FONT_SMALL, colors.bar_net);
+                canvas.draw_text(
+                    margin,
+                    y,
+                    &format!("[{}]", sparkline),
+                    FONT_SMALL,
+                    colors.bar_net,
+                );
             }
         } else {
             // Landscape layout
@@ -426,7 +438,13 @@ impl Face for AsciiFace {
                     SystemData::compute_graph_scale(&data.disk_history),
                     bar_chars + 20,
                 );
-                canvas.draw_text(margin, y, &format!("[{}]", sparkline), FONT_NORMAL, colors.bar_disk);
+                canvas.draw_text(
+                    margin,
+                    y,
+                    &format!("[{}]", sparkline),
+                    FONT_NORMAL,
+                    colors.bar_disk,
+                );
                 y += canvas.line_height(FONT_NORMAL) + 2;
             }
 
@@ -448,7 +466,13 @@ impl Face for AsciiFace {
                     SystemData::compute_graph_scale(&data.net_history),
                     bar_chars + 20,
                 );
-                canvas.draw_text(margin, y, &format!("[{}]", sparkline), FONT_NORMAL, colors.bar_net);
+                canvas.draw_text(
+                    margin,
+                    y,
+                    &format!("[{}]", sparkline),
+                    FONT_NORMAL,
+                    colors.bar_net,
+                );
             }
         }
         let _ = y;
