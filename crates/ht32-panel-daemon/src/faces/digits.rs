@@ -82,6 +82,20 @@ impl DigitsFace {
         canvas.draw_text(x, y, label, FONT_SMALL, label_color);
         canvas.draw_text(x, y + 10, value, FONT_LARGE, value_color);
     }
+
+    /// Draws a labeled value with larger fonts for landscape mode.
+    fn draw_segment_value_large(
+        canvas: &mut Canvas,
+        x: i32,
+        y: i32,
+        label: &str,
+        value: &str,
+        label_color: u32,
+        value_color: u32,
+    ) {
+        canvas.draw_text(x, y, label, FONT_MEDIUM, label_color);
+        canvas.draw_text(x, y + 14, value, FONT_TIME, value_color);
+    }
 }
 
 impl Default for DigitsFace {
@@ -281,10 +295,10 @@ impl Face for DigitsFace {
                 }
             }
         } else {
-            // Landscape layout - compact header, more room for metrics
+            // Landscape layout - larger metrics to fill space
             let col_width = (width as i32 - margin * 5) / 4;
 
-            // Row 1: Hostname on left, Time on right (smaller)
+            // Row 1: Hostname on left, Time on right
             canvas.draw_text(margin, y, &data.hostname, FONT_MEDIUM, colors.label);
             if is_on(complication_names::TIME) && time_format != time_formats::ANALOGUE {
                 let time_str = data.format_time(time_format);
@@ -297,9 +311,9 @@ impl Face for DigitsFace {
                     colors.segment_on,
                 );
             }
-            y += canvas.line_height(FONT_MEDIUM) + 2;
+            y += canvas.line_height(FONT_LARGE);
 
-            // Row 2: Uptime on left, Date on right
+            // Row 2: Uptime on left, Date on right (below time)
             let uptime_text = format!("Up: {}", data.uptime);
             canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.label);
             if is_on(complication_names::DATE) {
@@ -321,36 +335,36 @@ impl Face for DigitsFace {
                 if let Some(ref ip) = data.display_ip {
                     let ip_text = format!("IP: {}", ip);
                     canvas.draw_text(margin, y, &ip_text, FONT_SMALL, colors.label);
-                    y += canvas.line_height(FONT_SMALL) + 2;
                 }
             }
+            y += canvas.line_height(FONT_SMALL) + 4;
 
             Self::draw_divider(canvas, y, width, margin, colors.divider);
-            y += 6;
+            y += 8;
 
-            // Row 1: CPU (base), RAM (base), Temp (complication)
-            Self::draw_segment_value(
+            // Row 1: CPU (base), RAM (base), Temp (complication) - larger text
+            Self::draw_segment_value_large(
                 canvas,
                 margin,
                 y,
                 "CPU",
-                &format!("{:2.0}%", data.cpu_percent),
+                &format!("{:.0}%", data.cpu_percent),
                 colors.label,
                 colors.segment_on,
             );
-            Self::draw_segment_value(
+            Self::draw_segment_value_large(
                 canvas,
                 margin + col_width + margin,
                 y,
                 "RAM",
-                &format!("{:2.0}%", data.ram_percent),
+                &format!("{:.0}%", data.ram_percent),
                 colors.label,
                 colors.segment_on,
             );
             // Complication: CPU temperature
             if is_on(complication_names::CPU_TEMP) {
                 if let Some(temp) = data.cpu_temp {
-                    Self::draw_segment_value(
+                    Self::draw_segment_value_large(
                         canvas,
                         margin + (col_width + margin) * 2,
                         y,
@@ -361,16 +375,16 @@ impl Face for DigitsFace {
                     );
                 }
             }
-            y += 34;
+            y += 52;
 
             Self::draw_divider(canvas, y, width, margin, colors.divider);
-            y += 6;
+            y += 8;
 
-            // Row 2: Disk R, Disk W (complication), Net Down, Net Up (complication)
+            // Row 2: Disk R, Disk W (complication), Net Down, Net Up (complication) - larger text
             if is_on(complication_names::DISK_IO) {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
-                Self::draw_segment_value(
+                Self::draw_segment_value_large(
                     canvas,
                     margin,
                     y,
@@ -379,7 +393,7 @@ impl Face for DigitsFace {
                     colors.label,
                     colors.segment_on,
                 );
-                Self::draw_segment_value(
+                Self::draw_segment_value_large(
                     canvas,
                     margin + col_width + margin,
                     y,
@@ -392,7 +406,7 @@ impl Face for DigitsFace {
             if is_on(complication_names::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
-                Self::draw_segment_value(
+                Self::draw_segment_value_large(
                     canvas,
                     margin + (col_width + margin) * 2,
                     y,
@@ -401,7 +415,7 @@ impl Face for DigitsFace {
                     colors.label,
                     colors.segment_on,
                 );
-                Self::draw_segment_value(
+                Self::draw_segment_value_large(
                     canvas,
                     margin + (col_width + margin) * 3,
                     y,
