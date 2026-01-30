@@ -107,12 +107,30 @@ pub struct ThemeInfo {
 /// Returns a list of available theme presets with display names.
 pub fn available_themes() -> Vec<ThemeInfo> {
     vec![
-        ThemeInfo { id: "ember", display_name: "Ember" },
-        ThemeInfo { id: "hacker", display_name: "Hacker" },
-        ThemeInfo { id: "nord", display_name: "Nord" },
-        ThemeInfo { id: "solarized-dark", display_name: "Solarized Dark" },
-        ThemeInfo { id: "solarized-light", display_name: "Solarized Light" },
-        ThemeInfo { id: "tokyonight", display_name: "Tokyo Night" },
+        ThemeInfo {
+            id: "ember",
+            display_name: "Ember",
+        },
+        ThemeInfo {
+            id: "hacker",
+            display_name: "Hacker",
+        },
+        ThemeInfo {
+            id: "nord",
+            display_name: "Nord",
+        },
+        ThemeInfo {
+            id: "solarized-dark",
+            display_name: "Solarized Dark",
+        },
+        ThemeInfo {
+            id: "solarized-light",
+            display_name: "Solarized Light",
+        },
+        ThemeInfo {
+            id: "tokyonight",
+            display_name: "Tokyo Night",
+        },
     ]
 }
 
@@ -546,11 +564,26 @@ pub struct FaceInfo {
 /// Returns a list of available faces with display names.
 pub fn available_faces() -> Vec<FaceInfo> {
     vec![
-        FaceInfo { id: "arcs", display_name: "Arcs" },
-        FaceInfo { id: "ascii", display_name: "ASCII" },
-        FaceInfo { id: "clock", display_name: "Clock" },
-        FaceInfo { id: "digits", display_name: "Digits" },
-        FaceInfo { id: "professional", display_name: "Professional" },
+        FaceInfo {
+            id: "arcs",
+            display_name: "Arcs",
+        },
+        FaceInfo {
+            id: "ascii",
+            display_name: "ASCII",
+        },
+        FaceInfo {
+            id: "clock",
+            display_name: "Clock",
+        },
+        FaceInfo {
+            id: "digits",
+            display_name: "Digits",
+        },
+        FaceInfo {
+            id: "professional",
+            display_name: "Professional",
+        },
     ]
 }
 

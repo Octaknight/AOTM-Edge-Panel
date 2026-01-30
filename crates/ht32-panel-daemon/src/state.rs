@@ -289,7 +289,7 @@ impl AppState {
             let face_name = face.name();
             complications.set_option(
                 face_name,
-                faces::complications::IP_ADDRESS,
+                faces::complication_names::IP_ADDRESS,
                 faces::complication_options::IP_TYPE,
                 ip_display.clone(),
             );
@@ -301,7 +301,7 @@ impl AppState {
             let face_name = face.name();
             complications.set_option(
                 face_name,
-                faces::complications::NETWORK,
+                faces::complication_names::NETWORK,
                 faces::complication_options::INTERFACE,
                 network_interface.clone(),
             );
@@ -315,7 +315,7 @@ impl AppState {
         let network_interface_value = complications
             .get_option(
                 face.name(),
-                faces::complications::NETWORK,
+                faces::complication_names::NETWORK,
                 faces::complication_options::INTERFACE,
             )
             .cloned();
@@ -535,7 +535,7 @@ impl AppState {
         complications
             .get_option(
                 &face_name,
-                faces::complications::IP_ADDRESS,
+                faces::complication_names::IP_ADDRESS,
                 faces::complication_options::IP_TYPE,
             )
             .and_then(|s| s.parse().ok())
@@ -549,7 +549,7 @@ impl AppState {
         complications
             .get_option(
                 &face_name,
-                faces::complications::NETWORK,
+                faces::complication_names::NETWORK,
                 faces::complication_options::INTERFACE,
             )
             .filter(|s| *s != "auto" && !s.is_empty())
@@ -850,7 +850,7 @@ impl AppState {
         let face_name = self.face.read().unwrap().name().to_string();
         self.complications.write().unwrap().set_option(
             &face_name,
-            faces::complications::IP_ADDRESS,
+            faces::complication_names::IP_ADDRESS,
             faces::complication_options::IP_TYPE,
             preference.to_string(),
         );
@@ -876,7 +876,7 @@ impl AppState {
         let value = interface.clone().unwrap_or_else(|| "auto".to_string());
         self.complications.write().unwrap().set_option(
             &face_name,
-            faces::complications::NETWORK,
+            faces::complication_names::NETWORK,
             faces::complication_options::INTERFACE,
             value.clone(),
         );
@@ -950,7 +950,7 @@ impl AppState {
         if let faces::ComplicationOptionType::Choice(choices) = &option.option_type {
             if !choices.iter().any(|c| c.value == value) {
                 // Special case: network interface can be any valid interface
-                if complication_id == faces::complications::NETWORK
+                if complication_id == faces::complication_names::NETWORK
                     && option_id == faces::complication_options::INTERFACE
                 {
                     let interfaces = NetworkSensor::list_interfaces();
@@ -981,7 +981,7 @@ impl AppState {
         );
 
         // Special handling for network interface changes
-        if complication_id == faces::complications::NETWORK
+        if complication_id == faces::complication_names::NETWORK
             && option_id == faces::complication_options::INTERFACE
         {
             let mut sensors = self.sensors.lock().unwrap();

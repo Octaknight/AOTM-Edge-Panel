@@ -12,7 +12,8 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::faces::{
-    available_faces, available_themes, complication_options, complications, ComplicationOptionType,
+    available_faces, available_themes, complication_names, complication_options,
+    ComplicationOptionType,
 };
 use crate::state::AppState;
 
@@ -369,7 +370,7 @@ async fn complications_get(State(state): State<Arc<AppState>>) -> impl IntoRespo
                     let choices: Vec<ComplicationOptionChoice> = match &opt.option_type {
                         ComplicationOptionType::Choice(choices) => {
                             // For network interface, dynamically populate with available interfaces
-                            if c.id == complications::NETWORK
+                            if c.id == complication_names::NETWORK
                                 && opt.id == complication_options::INTERFACE
                             {
                                 let mut iface_choices = vec![ComplicationOptionChoice {
@@ -495,7 +496,7 @@ fn render_complications(state: &Arc<AppState>) -> Html<String> {
                     let choices: Vec<ComplicationOptionChoice> = match &opt.option_type {
                         ComplicationOptionType::Choice(choices) => {
                             // For network interface, dynamically populate with available interfaces
-                            if c.id == complications::NETWORK
+                            if c.id == complication_names::NETWORK
                                 && opt.id == complication_options::INTERFACE
                             {
                                 let mut iface_choices = vec![ComplicationOptionChoice {

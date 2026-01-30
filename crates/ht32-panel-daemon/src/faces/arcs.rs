@@ -6,7 +6,7 @@
 use std::f32::consts::PI;
 
 use super::{
-    complication_options, complications, date_formats, complication_names, time_formats,
+    complication_names, complication_options, complications, date_formats, time_formats,
     Complication, EnabledComplications, Face, Theme,
 };
 use crate::rendering::Canvas;

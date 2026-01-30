@@ -198,7 +198,14 @@ impl ClockFace {
             let y2 = cy as f32 + outer_r * angle.sin();
 
             let stroke = if i % 3 == 0 { 3.0 } else { 1.5 };
-            canvas.draw_line(x1 as i32, y1 as i32, x2 as i32, y2 as i32, stroke, colors.outline);
+            canvas.draw_line(
+                x1 as i32,
+                y1 as i32,
+                x2 as i32,
+                y2 as i32,
+                stroke,
+                colors.outline,
+            );
         }
 
         // Calculate hand angles (12 o'clock = -PI/2)
@@ -215,7 +222,14 @@ impl ClockFace {
         let minute_length = radius_f * 0.75;
         let minute_x = cx as f32 + minute_length * minute_angle.cos();
         let minute_y = cy as f32 + minute_length * minute_angle.sin();
-        canvas.draw_line(cx, cy, minute_x as i32, minute_y as i32, 2.5, colors.minute_hand);
+        canvas.draw_line(
+            cx,
+            cy,
+            minute_x as i32,
+            minute_y as i32,
+            2.5,
+            colors.minute_hand,
+        );
 
         // Draw center dot
         canvas.fill_circle(cx, cy, 4, colors.center);
