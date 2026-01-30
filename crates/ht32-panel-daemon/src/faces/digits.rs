@@ -83,8 +83,8 @@ impl DigitsFace {
         canvas.draw_text(x, y + 10, value, FONT_LARGE, value_color);
     }
 
-    /// Draws a labeled value with larger fonts for landscape mode.
-    fn draw_segment_value_large(
+    /// Draws a labeled value with medium fonts for landscape CPU/RAM row.
+    fn draw_segment_value_medium(
         canvas: &mut Canvas,
         x: i32,
         y: i32,
@@ -93,8 +93,8 @@ impl DigitsFace {
         label_color: u32,
         value_color: u32,
     ) {
-        canvas.draw_text(x, y, label, FONT_MEDIUM, label_color);
-        canvas.draw_text(x, y + 14, value, FONT_TIME, value_color);
+        canvas.draw_text(x, y, label, FONT_SMALL, label_color);
+        canvas.draw_text(x, y + 12, value, 26.0, value_color); // Between FONT_LARGE (20) and FONT_TIME (32)
     }
 }
 
@@ -340,10 +340,10 @@ impl Face for DigitsFace {
             y += canvas.line_height(FONT_SMALL) + 4;
 
             Self::draw_divider(canvas, y, width, margin, colors.divider);
-            y += 8;
+            y += 6;
 
-            // Row 1: CPU (base), RAM (base), Temp (complication) - larger text
-            Self::draw_segment_value_large(
+            // Row 1: CPU (base), RAM (base), Temp (complication) - medium text
+            Self::draw_segment_value_medium(
                 canvas,
                 margin,
                 y,
@@ -352,7 +352,7 @@ impl Face for DigitsFace {
                 colors.label,
                 colors.segment_on,
             );
-            Self::draw_segment_value_large(
+            Self::draw_segment_value_medium(
                 canvas,
                 margin + col_width + margin,
                 y,
@@ -364,7 +364,7 @@ impl Face for DigitsFace {
             // Complication: CPU temperature
             if is_on(complication_names::CPU_TEMP) {
                 if let Some(temp) = data.cpu_temp {
-                    Self::draw_segment_value_large(
+                    Self::draw_segment_value_medium(
                         canvas,
                         margin + (col_width + margin) * 2,
                         y,
@@ -375,16 +375,16 @@ impl Face for DigitsFace {
                     );
                 }
             }
-            y += 52;
+            y += 42;
 
             Self::draw_divider(canvas, y, width, margin, colors.divider);
-            y += 8;
+            y += 6;
 
-            // Row 2: Disk R, Disk W (complication), Net Down, Net Up (complication) - larger text
+            // Row 2: Disk R, Disk W (complication), Net Down, Net Up (complication) - smaller text
             if is_on(complication_names::DISK_IO) {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
-                Self::draw_segment_value_large(
+                Self::draw_segment_value(
                     canvas,
                     margin,
                     y,
@@ -393,7 +393,7 @@ impl Face for DigitsFace {
                     colors.label,
                     colors.segment_on,
                 );
-                Self::draw_segment_value_large(
+                Self::draw_segment_value(
                     canvas,
                     margin + col_width + margin,
                     y,
@@ -406,7 +406,7 @@ impl Face for DigitsFace {
             if is_on(complication_names::NETWORK) {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
-                Self::draw_segment_value_large(
+                Self::draw_segment_value(
                     canvas,
                     margin + (col_width + margin) * 2,
                     y,
@@ -415,7 +415,7 @@ impl Face for DigitsFace {
                     colors.label,
                     colors.segment_on,
                 );
-                Self::draw_segment_value_large(
+                Self::draw_segment_value(
                     canvas,
                     margin + (col_width + margin) * 3,
                     y,

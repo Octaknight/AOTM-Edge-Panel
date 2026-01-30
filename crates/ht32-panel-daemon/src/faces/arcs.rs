@@ -252,9 +252,9 @@ impl Face for ArcsFace {
             let center_x = width as i32 / 2;
 
             // Calculate vertical layout to use full height
-            // Reserve space: top text (~30px), bottom text (~24px), remaining for arcs
+            // Reserve space: top text (~30px), bottom text (~36px for 3 lines), remaining for arcs
             let top_text_height = 28_i32;
-            let bottom_text_height = 24_i32;
+            let bottom_text_height = 36_i32;
             let available_height =
                 height as i32 - margin * 2 - top_text_height - bottom_text_height;
 
@@ -264,7 +264,7 @@ impl Face for ArcsFace {
 
             let large_radius = ((large_arc_height - 8) / 2).min(34) as u32;
             let large_stroke = 6.0;
-            let small_radius = ((small_arc_height - 4) / 2).min(14) as u32;
+            let small_radius = ((small_arc_height - 4) / 2).min(18) as u32;
             let small_stroke = 3.5;
 
             let mut y = margin;
@@ -472,20 +472,29 @@ impl Face for ArcsFace {
                 );
             }
 
-            // Bottom text: hostname on top, uptime left and IP right on bottom line
-            let bottom_y = height as i32 - margin - 22;
-            canvas.draw_text(margin, bottom_y, &data.hostname, FONT_TINY, colors.dim);
+            // Bottom text: hostname on its own line at top, uptime left and IP right below
+            let bottom_y = height as i32 - margin - 34;
 
+            // Hostname centered on its own line
+            let host_width = canvas.text_width(&data.hostname, FONT_TINY);
+            canvas.draw_text(
+                (width as i32 - host_width) / 2,
+                bottom_y,
+                &data.hostname,
+                FONT_TINY,
+                colors.dim,
+            );
+
+            // Uptime on left, IP on right (below hostname)
             let uptime_text = format!("Up: {}", data.uptime);
-            canvas.draw_text(margin, bottom_y + 11, &uptime_text, FONT_TINY, colors.dim);
+            canvas.draw_text(margin, bottom_y + 12, &uptime_text, FONT_TINY, colors.dim);
 
             if is_on(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     let ip_width = canvas.text_width(ip, FONT_TINY);
-                    // Put IP on right side of hostname line to avoid overlap with uptime
                     canvas.draw_text(
                         width as i32 - margin - ip_width,
-                        bottom_y,
+                        bottom_y + 12,
                         ip,
                         FONT_TINY,
                         colors.dim,
