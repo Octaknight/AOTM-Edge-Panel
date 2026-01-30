@@ -151,6 +151,13 @@ impl Face for ClockFace {
 
     fn available_complications(&self) -> Vec<Complication> {
         vec![
+            Complication::new("hostname", "Hostname", "Display the system hostname", false),
+            Complication::new(
+                "digital_time",
+                "Digital Time",
+                "Display the current time in digital format",
+                false,
+            ),
             Complication::with_options(
                 complications::DATE,
                 "Date",
@@ -171,7 +178,6 @@ impl Face for ClockFace {
                     date_formats::SHORT,
                 )],
             ),
-            Complication::new("hostname", "Hostname", "Display the system hostname", false),
         ]
     }
 
@@ -197,23 +203,32 @@ impl Face for ClockFace {
             .map(|s| s.as_str())
             .unwrap_or(date_formats::SHORT);
 
-        // Calculate clock size and position
-        // Use the smaller dimension to ensure the clock fits
-        let margin = 10;
-        let max_radius = ((width.min(height) as i32 - margin * 2) / 2) as u32;
-
-        // Adjust for complications
-        let show_date = is_on(complications::DATE);
+        // Check which complications are enabled
         let show_hostname = is_on("hostname");
-        let complication_space = if show_date || show_hostname { 20 } else { 0 };
+        let show_digital_time = is_on("digital_time");
+        let show_date = is_on(complications::DATE);
 
-        let radius = max_radius.saturating_sub(complication_space as u32 / 2);
+        // Calculate space needed for complications
+        let top_space = if show_hostname { 18 } else { 0 };
+        let bottom_space = if show_date || show_digital_time { 20 } else { 0 };
+
+        // Calculate clock size and position
+        let margin = 10;
+        let available_height = height as i32 - margin * 2 - top_space - bottom_space;
+        let available_width = width as i32 - margin * 2;
+        let max_radius = (available_height.min(available_width) / 2) as u32;
+
+        let radius = max_radius;
         let cx = width as i32 / 2;
-        let cy = if show_date || show_hostname {
-            height as i32 / 2 - complication_space / 2
-        } else {
-            height as i32 / 2
-        };
+        let cy = top_space + margin + radius as i32;
+
+        // Draw hostname above the clock
+        if show_hostname {
+            let host_width = canvas.text_width(&data.hostname, FONT_SMALL);
+            let host_x = (width as i32 - host_width) / 2;
+            let host_y = margin / 2;
+            canvas.draw_text(host_x, host_y, &data.hostname, FONT_SMALL, colors.dim);
+        }
 
         // Draw the analog clock
         Self::draw_analog_clock(canvas, cx, cy, radius, data.hour, data.minute, &colors);
@@ -221,19 +236,20 @@ impl Face for ClockFace {
         // Draw complications below the clock
         let mut bottom_y = cy + radius as i32 + 8;
 
+        if show_digital_time {
+            let time_str = format!("{:02}:{:02}", data.hour, data.minute);
+            let time_width = canvas.text_width(&time_str, FONT_NORMAL);
+            let time_x = (width as i32 - time_width) / 2;
+            canvas.draw_text(time_x, bottom_y, &time_str, FONT_NORMAL, colors.text);
+            bottom_y += canvas.line_height(FONT_NORMAL) + 2;
+        }
+
         if show_date {
             if let Some(date_str) = data.format_date(date_format) {
                 let date_width = canvas.text_width(&date_str, FONT_NORMAL);
                 let date_x = (width as i32 - date_width) / 2;
                 canvas.draw_text(date_x, bottom_y, &date_str, FONT_NORMAL, colors.text);
-                bottom_y += canvas.line_height(FONT_NORMAL) + 2;
             }
-        }
-
-        if show_hostname {
-            let host_width = canvas.text_width(&data.hostname, FONT_SMALL);
-            let host_x = (width as i32 - host_width) / 2;
-            canvas.draw_text(host_x, bottom_y, &data.hostname, FONT_SMALL, colors.dim);
         }
     }
 }
