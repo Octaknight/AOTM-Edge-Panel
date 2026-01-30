@@ -356,7 +356,7 @@ impl Face for ArcsFace {
                 // Letter in bottom open space
                 canvas.draw_text(
                     disk_r_cx - 3,
-                    disk_r_cy + small_radius as i32 - 2,
+                    disk_r_cy + small_radius as i32 / 2,
                     "R",
                     FONT_TINY,
                     colors.dim,
@@ -387,7 +387,7 @@ impl Face for ArcsFace {
                 // Letter in bottom open space
                 canvas.draw_text(
                     disk_w_cx - 4,
-                    disk_r_cy + small_radius as i32 - 2,
+                    disk_r_cy + small_radius as i32 / 2,
                     "W",
                     FONT_TINY,
                     colors.dim,
@@ -421,7 +421,7 @@ impl Face for ArcsFace {
                 // Arrow in bottom open space
                 canvas.draw_text(
                     net_rx_cx - 4,
-                    disk_r_cy + small_radius as i32 - 2,
+                    disk_r_cy + small_radius as i32 / 2,
                     "\u{2193}",
                     FONT_TINY,
                     colors.dim,
@@ -452,7 +452,7 @@ impl Face for ArcsFace {
                 // Arrow in bottom open space
                 canvas.draw_text(
                     net_tx_cx - 4,
-                    disk_r_cy + small_radius as i32 - 2,
+                    disk_r_cy + small_radius as i32 / 2,
                     "\u{2191}",
                     FONT_TINY,
                     colors.dim,
@@ -597,7 +597,7 @@ impl Face for ArcsFace {
                 // Letter in bottom open space
                 canvas.draw_text(
                     disk_r_cx - 3,
-                    disk_cy + small_radius as i32 - 2,
+                    disk_cy + small_radius as i32 / 2,
                     "R",
                     FONT_TINY,
                     colors.dim,
@@ -628,7 +628,7 @@ impl Face for ArcsFace {
                 // Letter in bottom open space
                 canvas.draw_text(
                     disk_w_cx - 4,
-                    disk_cy + small_radius as i32 - 2,
+                    disk_cy + small_radius as i32 / 2,
                     "W",
                     FONT_TINY,
                     colors.dim,
@@ -662,7 +662,7 @@ impl Face for ArcsFace {
                 // Arrow in bottom open space
                 canvas.draw_text(
                     disk_r_cx - 4,
-                    net_cy + small_radius as i32 - 2,
+                    net_cy + small_radius as i32 / 2,
                     "\u{2193}",
                     FONT_TINY,
                     colors.dim,
@@ -693,7 +693,7 @@ impl Face for ArcsFace {
                 // Arrow in bottom open space
                 canvas.draw_text(
                     net_w_cx - 4,
-                    net_cy + small_radius as i32 - 2,
+                    net_cy + small_radius as i32 / 2,
                     "\u{2191}",
                     FONT_TINY,
                     colors.dim,
