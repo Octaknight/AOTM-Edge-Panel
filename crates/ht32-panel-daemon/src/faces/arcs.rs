@@ -310,16 +310,18 @@ impl Face for ArcsFace {
                 top_y += canvas.line_height(FONT_LARGE) + 2;
             }
 
-            // Complication: Date (centered, if not hidden)
+            // Complication: Date (centered)
             if is_on(complications::DATE) {
                 if let Some(date_str) = data.format_date(date_format) {
                     let date_width = canvas.text_width(&date_str, FONT_SMALL);
                     let date_x = (width as i32 - date_width) / 2;
                     canvas.draw_text(date_x, top_y, &date_str, FONT_SMALL, colors.dim);
+                    top_y += canvas.line_height(FONT_SMALL) + 4;
                 }
             }
 
-            let row1_y = margin + 24;
+            // Position gauges below time/date section
+            let row1_y = top_y.max(margin + 8);
             let cpu_cx = margin + gauge_radius as i32 + 4;
             let cpu_cy = row1_y + gauge_radius as i32;
 
@@ -448,10 +450,24 @@ impl Face for ArcsFace {
             }
 
             // Base elements: Hostname and uptime at bottom (always shown)
-            let bottom_y = height as i32 - margin - 28;
+            let bottom_y = height as i32 - margin - 42;
             canvas.draw_text(margin, bottom_y, &data.hostname, FONT_SMALL, colors.dim);
             let uptime_text = format!("Up: {}", data.uptime);
             canvas.draw_text(margin, bottom_y + 14, &uptime_text, FONT_TINY, colors.dim);
+
+            // Complication: IP address
+            if is_on(complications::IP_ADDRESS) {
+                if let Some(ref ip) = data.display_ip {
+                    let ip_width = canvas.text_width(ip, FONT_TINY);
+                    canvas.draw_text(
+                        (width as i32 - ip_width) / 2,
+                        bottom_y + 28,
+                        ip,
+                        FONT_TINY,
+                        colors.dim,
+                    );
+                }
+            }
         } else {
             // Landscape layout
             let margin = 10;
