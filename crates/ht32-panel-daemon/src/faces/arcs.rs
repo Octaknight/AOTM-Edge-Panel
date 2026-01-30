@@ -247,7 +247,7 @@ impl Face for ArcsFace {
             .unwrap_or(date_formats::ISO);
 
         if portrait {
-            // Portrait layout: CPU, RAM stacked vertically, disk/net side by side at bottom
+            // Portrait layout: CPU, RAM stacked vertically, disk/net on separate rows at bottom
             let margin = 6;
             let center_x = width as i32 / 2;
 
@@ -258,14 +258,14 @@ impl Face for ArcsFace {
             let available_height =
                 height as i32 - margin * 2 - top_text_height - bottom_text_height;
 
-            // Large arcs (CPU, RAM) get 35% each, small arcs row gets 30%
-            let large_arc_height = (available_height * 35) / 100;
-            let small_arc_height = (available_height * 30) / 100;
+            // Large arcs (CPU, RAM) get 30% each, two small arc rows get 20% each
+            let large_arc_height = (available_height * 30) / 100;
+            let small_arc_height = (available_height * 20) / 100;
 
-            let large_radius = ((large_arc_height - 8) / 2).min(38) as u32;
-            let large_stroke = 7.0;
-            let small_radius = ((small_arc_height - 4) / 2).min(16) as u32;
-            let small_stroke = 4.0;
+            let large_radius = ((large_arc_height - 8) / 2).min(34) as u32;
+            let large_stroke = 6.0;
+            let small_radius = ((small_arc_height - 4) / 2).min(14) as u32;
+            let small_stroke = 3.5;
 
             let mut y = margin;
 
@@ -345,18 +345,16 @@ impl Face for ArcsFace {
             );
             y += large_arc_height;
 
-            // Bottom row: Disk and Network arcs side by side
             let io_max = 100_000_000.0;
-            let small_cy = y + small_radius as i32 + 2;
-            let quarter_w = width as i32 / 4;
 
-            // Disk gauges (left half)
+            // Disk row: Read and Write arcs centered
             if is_on(complication_names::DISK_IO) {
-                let disk_r_cx = quarter_w - small_radius as i32 - 2;
+                let disk_cy = y + small_radius as i32 + 2;
+                let disk_r_cx = center_x - small_radius as i32 - 6;
                 Self::draw_activity_arc(
                     canvas,
                     disk_r_cx,
-                    small_cy,
+                    disk_cy,
                     small_radius,
                     small_stroke,
                     data.disk_read_rate,
@@ -368,24 +366,24 @@ impl Face for ArcsFace {
                 let disk_r_w = canvas.text_width(&disk_r_text, FONT_TINY);
                 canvas.draw_text(
                     disk_r_cx - disk_r_w / 2,
-                    small_cy - 4,
+                    disk_cy - 4,
                     &disk_r_text,
                     FONT_TINY,
                     colors.text,
                 );
                 canvas.draw_text(
                     disk_r_cx - 3,
-                    small_cy + small_radius as i32 / 2,
+                    disk_cy + small_radius as i32 / 2,
                     "R",
                     FONT_TINY,
                     colors.dim,
                 );
 
-                let disk_w_cx = quarter_w + small_radius as i32 + 2;
+                let disk_w_cx = center_x + small_radius as i32 + 6;
                 Self::draw_activity_arc(
                     canvas,
                     disk_w_cx,
-                    small_cy,
+                    disk_cy,
                     small_radius,
                     small_stroke,
                     data.disk_write_rate,
@@ -397,27 +395,29 @@ impl Face for ArcsFace {
                 let disk_w_w = canvas.text_width(&disk_w_text, FONT_TINY);
                 canvas.draw_text(
                     disk_w_cx - disk_w_w / 2,
-                    small_cy - 4,
+                    disk_cy - 4,
                     &disk_w_text,
                     FONT_TINY,
                     colors.text,
                 );
                 canvas.draw_text(
                     disk_w_cx - 4,
-                    small_cy + small_radius as i32 / 2,
+                    disk_cy + small_radius as i32 / 2,
                     "W",
                     FONT_TINY,
                     colors.dim,
                 );
+                y += small_arc_height;
             }
 
-            // Network gauges (right half)
+            // Network row: RX and TX arcs centered
             if is_on(complication_names::NETWORK) {
-                let net_rx_cx = quarter_w * 3 - small_radius as i32 - 2;
+                let net_cy = y + small_radius as i32 + 2;
+                let net_rx_cx = center_x - small_radius as i32 - 6;
                 Self::draw_activity_arc(
                     canvas,
                     net_rx_cx,
-                    small_cy,
+                    net_cy,
                     small_radius,
                     small_stroke,
                     data.net_rx_rate,
@@ -429,24 +429,24 @@ impl Face for ArcsFace {
                 let net_rx_w = canvas.text_width(&net_rx_text, FONT_TINY);
                 canvas.draw_text(
                     net_rx_cx - net_rx_w / 2,
-                    small_cy - 4,
+                    net_cy - 4,
                     &net_rx_text,
                     FONT_TINY,
                     colors.text,
                 );
                 canvas.draw_text(
                     net_rx_cx - 4,
-                    small_cy + small_radius as i32 / 2,
+                    net_cy + small_radius as i32 / 2,
                     "\u{2193}",
                     FONT_TINY,
                     colors.dim,
                 );
 
-                let net_tx_cx = quarter_w * 3 + small_radius as i32 + 2;
+                let net_tx_cx = center_x + small_radius as i32 + 6;
                 Self::draw_activity_arc(
                     canvas,
                     net_tx_cx,
-                    small_cy,
+                    net_cy,
                     small_radius,
                     small_stroke,
                     data.net_tx_rate,
@@ -458,32 +458,34 @@ impl Face for ArcsFace {
                 let net_tx_w = canvas.text_width(&net_tx_text, FONT_TINY);
                 canvas.draw_text(
                     net_tx_cx - net_tx_w / 2,
-                    small_cy - 4,
+                    net_cy - 4,
                     &net_tx_text,
                     FONT_TINY,
                     colors.text,
                 );
                 canvas.draw_text(
                     net_tx_cx - 4,
-                    small_cy + small_radius as i32 / 2,
+                    net_cy + small_radius as i32 / 2,
                     "\u{2191}",
                     FONT_TINY,
                     colors.dim,
                 );
             }
 
-            // Bottom text: hostname, uptime, IP
+            // Bottom text: hostname on top, uptime left and IP right on bottom line
             let bottom_y = height as i32 - margin - 22;
             canvas.draw_text(margin, bottom_y, &data.hostname, FONT_TINY, colors.dim);
+
             let uptime_text = format!("Up: {}", data.uptime);
             canvas.draw_text(margin, bottom_y + 11, &uptime_text, FONT_TINY, colors.dim);
 
             if is_on(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
                     let ip_width = canvas.text_width(ip, FONT_TINY);
+                    // Put IP on right side of hostname line to avoid overlap with uptime
                     canvas.draw_text(
                         width as i32 - margin - ip_width,
-                        bottom_y + 11,
+                        bottom_y,
                         ip,
                         FONT_TINY,
                         colors.dim,
@@ -720,11 +722,12 @@ impl Face for ArcsFace {
             // Complication: IP address
             if is_on(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
-                    let ip_width = canvas.text_width(ip, FONT_TINY);
+                    let ip_text = format!("IP: {}", ip);
+                    let ip_width = canvas.text_width(&ip_text, FONT_TINY);
                     canvas.draw_text(
                         width as i32 - margin - ip_width,
                         bottom_y,
-                        ip,
+                        &ip_text,
                         FONT_TINY,
                         colors.dim,
                     );

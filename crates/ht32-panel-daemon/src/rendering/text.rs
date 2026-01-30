@@ -93,6 +93,77 @@ impl TextRenderer {
             .sum()
     }
 
+    /// Returns the width of text when rendered with horizontal scaling.
+    pub fn text_width_scaled(&self, text: &str, size: f32, x_scale: f32) -> i32 {
+        (self.text_width(text, size) as f32 * x_scale) as i32
+    }
+
+    /// Draws text with horizontal scaling (x_scale < 1.0 makes text narrower/taller-looking).
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw_text_scaled(
+        &self,
+        pixmap: &mut Pixmap,
+        x: i32,
+        y: i32,
+        text: &str,
+        size: f32,
+        color: u32,
+        x_scale: f32,
+    ) {
+        let r = ((color >> 16) & 0xFF) as u8;
+        let g = ((color >> 8) & 0xFF) as u8;
+        let b = (color & 0xFF) as u8;
+
+        let mut cursor_x = x as f32;
+
+        for ch in text.chars() {
+            let (metrics, bitmap) = self.font.rasterize(ch, size);
+
+            // Draw the glyph bitmap with horizontal scaling
+            let scaled_width = (metrics.width as f32 * x_scale).ceil() as usize;
+
+            for glyph_y in 0..metrics.height {
+                for scaled_x in 0..scaled_width {
+                    // Map scaled x back to source x
+                    let src_x = (scaled_x as f32 / x_scale) as usize;
+                    if src_x >= metrics.width {
+                        continue;
+                    }
+
+                    let coverage = bitmap[glyph_y * metrics.width + src_x];
+                    if coverage > 0 {
+                        let px = cursor_x as i32 + (metrics.xmin as f32 * x_scale) as i32 + scaled_x as i32;
+                        let py = y
+                            + (size as i32 - metrics.ymin - metrics.height as i32)
+                            + glyph_y as i32;
+
+                        if px >= 0
+                            && py >= 0
+                            && (px as u32) < pixmap.width()
+                            && (py as u32) < pixmap.height()
+                        {
+                            let idx = (py as u32 * pixmap.width() + px as u32) as usize * 4;
+                            let data = pixmap.data_mut();
+
+                            // Alpha blend the glyph
+                            let alpha = coverage as f32 / 255.0;
+                            let inv_alpha = 1.0 - alpha;
+
+                            data[idx] = (r as f32 * alpha + data[idx] as f32 * inv_alpha) as u8;
+                            data[idx + 1] =
+                                (g as f32 * alpha + data[idx + 1] as f32 * inv_alpha) as u8;
+                            data[idx + 2] =
+                                (b as f32 * alpha + data[idx + 2] as f32 * inv_alpha) as u8;
+                            data[idx + 3] = 255; // Full opacity
+                        }
+                    }
+                }
+            }
+
+            cursor_x += metrics.advance_width * x_scale;
+        }
+    }
+
     /// Returns the line height for the specified font size.
     pub fn line_height(&self, size: f32) -> i32 {
         // fontdue doesn't provide line metrics directly, approximate

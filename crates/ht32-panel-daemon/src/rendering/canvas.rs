@@ -213,9 +213,37 @@ impl Canvas {
             .draw_text(&mut self.pixmap, x, y, text, size, color);
     }
 
+    /// Draws text with horizontal scaling.
+    ///
+    /// # Arguments
+    /// * `x` - X position (left edge of text)
+    /// * `y` - Y position (top edge of text)
+    /// * `text` - The text to render
+    /// * `size` - Font size in pixels
+    /// * `color` - RGB888 color (0xRRGGBB)
+    /// * `x_scale` - Horizontal scale factor (< 1.0 makes text narrower)
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw_text_scaled(
+        &mut self,
+        x: i32,
+        y: i32,
+        text: &str,
+        size: f32,
+        color: u32,
+        x_scale: f32,
+    ) {
+        self.text_renderer
+            .draw_text_scaled(&mut self.pixmap, x, y, text, size, color, x_scale);
+    }
+
     /// Returns the width of text when rendered at the specified size.
     pub fn text_width(&self, text: &str, size: f32) -> i32 {
         self.text_renderer.text_width(text, size)
+    }
+
+    /// Returns the width of text when rendered with horizontal scaling.
+    pub fn text_width_scaled(&self, text: &str, size: f32, x_scale: f32) -> i32 {
+        self.text_renderer.text_width_scaled(text, size, x_scale)
     }
 
     /// Returns the line height for the specified font size.

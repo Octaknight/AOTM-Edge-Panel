@@ -200,6 +200,7 @@ impl Face for AsciiFace {
         if portrait {
             // Portrait layout - labels on separate lines, wider graphs
             let line_height = canvas.line_height(FONT_SMALL);
+            let section_spacing = 6; // Extra spacing between label/value pairs
             // Calculate bar width to fill most of the line (leave margin on each side)
             let bar_width = ((width as i32 - margin * 2) / 7).max(12) as usize; // ~7 pixels per char
 
@@ -233,11 +234,13 @@ impl Face for AsciiFace {
                     );
                 }
             }
+            y += line_height; // Skip line for date
+            y += line_height; // Extra line before Up
 
-            // Up: on its own line
+            // Up: on its own line (two lines below date)
             let uptime_text = format!("Up: {}", data.uptime);
             canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.dim);
-            y += line_height + 1;
+            y += line_height + section_spacing;
 
             // IP: on its own line
             if is_enabled(complication_names::IP_ADDRESS) {
@@ -257,7 +260,7 @@ impl Face for AsciiFace {
                     } else {
                         canvas.draw_text(margin, y, ip, FONT_SMALL, colors.text);
                     }
-                    y += line_height + 1;
+                    y += line_height + section_spacing;
                 }
             }
 
@@ -274,7 +277,7 @@ impl Face for AsciiFace {
                         FONT_SMALL,
                         colors.text,
                     );
-                    y += line_height + 1;
+                    y += line_height + section_spacing;
                 }
             }
 
@@ -284,7 +287,7 @@ impl Face for AsciiFace {
             y += line_height;
             let cpu_bar = ascii_bar(data.cpu_percent, bar_width);
             canvas.draw_text(margin, y, &cpu_bar, FONT_SMALL, colors.text);
-            y += line_height + 1;
+            y += line_height + section_spacing;
 
             // RAM: label line, then bar on next line
             let ram_label = format!("RAM: {:2.0}%", data.ram_percent);
@@ -292,7 +295,7 @@ impl Face for AsciiFace {
             y += line_height;
             let ram_bar = ascii_bar(data.ram_percent, bar_width);
             canvas.draw_text(margin, y, &ram_bar, FONT_SMALL, colors.text);
-            y += line_height + 1;
+            y += line_height + section_spacing;
 
             // DSK: label line, then sparkline on next line
             if is_enabled(complication_names::DISK_IO) {
@@ -321,7 +324,7 @@ impl Face for AsciiFace {
                     FONT_SMALL,
                     colors.bar_disk,
                 );
-                y += line_height + 1;
+                y += line_height + section_spacing;
             }
 
             // NET: label line, then sparkline on next line
@@ -438,13 +441,7 @@ impl Face for AsciiFace {
                     SystemData::compute_graph_scale(&data.disk_history),
                     bar_chars + 20,
                 );
-                canvas.draw_text(
-                    margin,
-                    y,
-                    &format!("[{}]", sparkline),
-                    FONT_NORMAL,
-                    colors.bar_disk,
-                );
+                canvas.draw_text(margin, y, &format!("[{}]", sparkline), FONT_NORMAL, colors.bar_disk);
                 y += canvas.line_height(FONT_NORMAL) + 2;
             }
 
@@ -466,13 +463,7 @@ impl Face for AsciiFace {
                     SystemData::compute_graph_scale(&data.net_history),
                     bar_chars + 20,
                 );
-                canvas.draw_text(
-                    margin,
-                    y,
-                    &format!("[{}]", sparkline),
-                    FONT_NORMAL,
-                    colors.bar_net,
-                );
+                canvas.draw_text(margin, y, &format!("[{}]", sparkline), FONT_NORMAL, colors.bar_net);
             }
         }
         let _ = y;

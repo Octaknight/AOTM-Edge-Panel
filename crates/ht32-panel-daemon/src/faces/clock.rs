@@ -105,8 +105,24 @@ impl ClockFace {
         colors: &FaceColors,
         time_font_size: f32,
     ) {
-        let (_, height) = canvas.dimensions();
+        let (width, height) = canvas.dimensions();
         let time_str = format!("{:02}:{:02}", hour, minute);
+        let portrait = width < 200;
+
+        // In portrait mode with large fonts, scale text horizontally to prevent overflow
+        let x_scale = if portrait && time_font_size > 56.0 {
+            // Calculate scale to fit within width with some margin
+            let margin = 4.0;
+            let available_width = width as f32 - margin * 2.0;
+            let natural_width = canvas.text_width(&time_str, time_font_size) as f32;
+            if natural_width > available_width {
+                available_width / natural_width
+            } else {
+                1.0
+            }
+        } else {
+            1.0
+        };
 
         // Calculate total height needed
         let time_height = canvas.line_height(time_font_size);
@@ -125,8 +141,15 @@ impl ClockFace {
             y += h + 4;
         }
 
-        let h = Self::draw_centered_text(canvas, y, &time_str, time_font_size, colors.text);
-        y += h + 4;
+        // Draw time with scaling if needed
+        if x_scale < 1.0 {
+            let text_width = canvas.text_width_scaled(&time_str, time_font_size, x_scale);
+            let x = (width as i32 - text_width) / 2;
+            canvas.draw_text_scaled(x, y, &time_str, time_font_size, colors.text, x_scale);
+        } else {
+            Self::draw_centered_text(canvas, y, &time_str, time_font_size, colors.text);
+        }
+        y += time_height + 4;
 
         if layout.show_date {
             if let Some(date) = &layout.date {
@@ -147,22 +170,37 @@ impl ClockFace {
         let margin = 10;
 
         // Calculate space for complications
-        let top_space = if layout.show_hostname { 18 } else { 0 };
-        let bottom_space = if layout.show_date { 20 } else { 0 };
+        let hostname_height = if layout.show_hostname {
+            canvas.line_height(FONT_SMALL) + 4
+        } else {
+            0
+        };
+        let date_height = if layout.show_date && layout.date.is_some() {
+            canvas.line_height(FONT_NORMAL) + 8
+        } else {
+            0
+        };
 
-        // Calculate clock size and position
-        let available_height = height as i32 - margin * 2 - top_space - bottom_space;
+        // Calculate clock size based on available space
+        let available_height = height as i32 - margin * 2 - hostname_height - date_height;
         let available_width = width as i32 - margin * 2;
         let radius = (available_height.min(available_width) / 2) as u32;
+
+        // Calculate total content height and center vertically
+        let total_height = hostname_height + (radius as i32 * 2) + date_height;
+        let start_y = (height as i32 - total_height) / 2;
+
         let cx = width as i32 / 2;
-        let cy = top_space + margin + radius as i32;
+        let mut y = start_y;
 
         // Draw hostname above
         if layout.show_hostname {
-            Self::draw_centered_text(canvas, margin / 2, &layout.hostname, FONT_SMALL, colors.dim);
+            Self::draw_centered_text(canvas, y, &layout.hostname, FONT_SMALL, colors.dim);
+            y += hostname_height;
         }
 
-        // Draw clock face
+        // Draw clock face (cy is center of clock)
+        let cy = y + radius as i32;
         Self::draw_clock_face(canvas, cx, cy, radius, hour, minute, colors);
 
         // Draw date below

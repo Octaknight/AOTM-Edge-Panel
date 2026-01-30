@@ -143,6 +143,14 @@ impl Face for DigitsFace {
 
         if portrait {
             // Portrait layout
+            let col_width = (width as i32 - margin * 3) / 2;
+
+            // Hostname at top (always shown)
+            let host_width = canvas.text_width(&data.hostname, FONT_MEDIUM);
+            let host_x = (width as i32 - host_width) / 2;
+            canvas.draw_text(host_x, y, &data.hostname, FONT_MEDIUM, colors.label);
+            y += canvas.line_height(FONT_MEDIUM) + 2;
+
             // Complication: Time
             if is_on(complication_names::TIME) && time_format != time_formats::ANALOGUE {
                 let time_str = data.format_time(time_format);
@@ -158,40 +166,39 @@ impl Face for DigitsFace {
                     let date_width = canvas.text_width(&date_str, FONT_MEDIUM);
                     let date_x = (width as i32 - date_width) / 2;
                     canvas.draw_text(date_x, y, &date_str, FONT_MEDIUM, colors.label);
-                    y += canvas.line_height(FONT_MEDIUM) + 2;
+                    y += canvas.line_height(FONT_MEDIUM) + 4;
                 }
             }
 
-            // Base element: Hostname (always shown)
-            let host_width = canvas.text_width(&data.hostname, FONT_MEDIUM);
-            let host_x = (width as i32 - host_width) / 2;
-            canvas.draw_text(host_x, y, &data.hostname, FONT_MEDIUM, colors.label);
-            y += canvas.line_height(FONT_MEDIUM) + 4;
-
-            let col_width = (width as i32 - margin * 3) / 2;
-
-            // Base elements: CPU and RAM (always shown)
+            // CPU on its own line with bigger number
             Self::draw_divider(canvas, y, width, margin, colors.divider);
             y += 6;
-            Self::draw_segment_value(
-                canvas,
-                margin,
-                y,
-                "CPU",
-                &format!("{:2.0}%", data.cpu_percent),
-                colors.label,
+            canvas.draw_text(margin, y, "CPU", FONT_SMALL, colors.label);
+            let cpu_val = format!("{:.0}%", data.cpu_percent);
+            let cpu_val_w = canvas.text_width(&cpu_val, FONT_TIME);
+            canvas.draw_text(
+                width as i32 - margin - cpu_val_w,
+                y - 4,
+                &cpu_val,
+                FONT_TIME,
                 colors.segment_on,
             );
-            Self::draw_segment_value(
-                canvas,
-                margin + col_width + margin,
-                y,
-                "RAM",
-                &format!("{:2.0}%", data.ram_percent),
-                colors.label,
+            y += canvas.line_height(FONT_TIME);
+
+            // RAM on its own line with bigger number
+            Self::draw_divider(canvas, y, width, margin, colors.divider);
+            y += 6;
+            canvas.draw_text(margin, y, "RAM", FONT_SMALL, colors.label);
+            let ram_val = format!("{:.0}%", data.ram_percent);
+            let ram_val_w = canvas.text_width(&ram_val, FONT_TIME);
+            canvas.draw_text(
+                width as i32 - margin - ram_val_w,
+                y - 4,
+                &ram_val,
+                FONT_TIME,
                 colors.segment_on,
             );
-            y += 32;
+            y += canvas.line_height(FONT_TIME);
 
             // Complication: Disk I/O
             if is_on(complication_names::DISK_IO) {
@@ -222,6 +229,8 @@ impl Face for DigitsFace {
 
             // Complication: Network
             if is_on(complication_names::NETWORK) {
+                Self::draw_divider(canvas, y, width, margin, colors.divider);
+                y += 6;
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 Self::draw_segment_value(
@@ -245,11 +254,11 @@ impl Face for DigitsFace {
                 y += 32;
             }
 
-            // Base element: Uptime and complication: IP address
+            // Uptime and IP at bottom (where hostname used to be)
             Self::draw_divider(canvas, y, width, margin, colors.divider);
             y += 6;
 
-            // Base element: Uptime (always shown)
+            // Uptime (always shown)
             canvas.draw_text(
                 margin,
                 y,
@@ -272,45 +281,46 @@ impl Face for DigitsFace {
                 }
             }
         } else {
-            // Landscape layout - hostname at top, better vertical spacing
+            // Landscape layout - compact header, more room for metrics
             let col_width = (width as i32 - margin * 5) / 4;
 
-            // Hostname at the very top
+            // Row 1: Hostname on left, Time on right (smaller)
             canvas.draw_text(margin, y, &data.hostname, FONT_MEDIUM, colors.label);
-            y += canvas.line_height(FONT_MEDIUM) + 2;
-
-            // Complication: Time (large, centered)
             if is_on(complication_names::TIME) && time_format != time_formats::ANALOGUE {
                 let time_str = data.format_time(time_format);
-                let time_width = canvas.text_width(&time_str, FONT_TIME);
-                let time_x = (width as i32 - time_width) / 2;
-                canvas.draw_text(time_x, y, &time_str, FONT_TIME, colors.segment_on);
-                y += canvas.line_height(FONT_TIME) + 2;
+                let time_width = canvas.text_width(&time_str, FONT_LARGE);
+                canvas.draw_text(
+                    width as i32 - margin - time_width,
+                    y,
+                    &time_str,
+                    FONT_LARGE,
+                    colors.segment_on,
+                );
             }
-
-            // Date and uptime on same line below time
-            if is_on(complication_names::DATE) {
-                if let Some(date_str) = data.format_date(date_format) {
-                    canvas.draw_text(margin, y, &date_str, FONT_MEDIUM, colors.label);
-                }
-            }
-            let uptime_text = format!("UP {}", data.uptime);
-            let uptime_width = canvas.text_width(&uptime_text, FONT_SMALL);
-            canvas.draw_text(
-                width as i32 - margin - uptime_width,
-                y + 2,
-                &uptime_text,
-                FONT_SMALL,
-                colors.label,
-            );
             y += canvas.line_height(FONT_MEDIUM) + 2;
 
-            // IP address below date/uptime
+            // Row 2: Uptime on left, Date on right
+            let uptime_text = format!("Up: {}", data.uptime);
+            canvas.draw_text(margin, y, &uptime_text, FONT_SMALL, colors.label);
+            if is_on(complication_names::DATE) {
+                if let Some(date_str) = data.format_date(date_format) {
+                    let date_width = canvas.text_width(&date_str, FONT_SMALL);
+                    canvas.draw_text(
+                        width as i32 - margin - date_width,
+                        y,
+                        &date_str,
+                        FONT_SMALL,
+                        colors.label,
+                    );
+                }
+            }
+            y += canvas.line_height(FONT_SMALL) + 2;
+
+            // Row 3: IP address on left with label
             if is_on(complication_names::IP_ADDRESS) {
                 if let Some(ref ip) = data.display_ip {
-                    let ip_width = canvas.text_width(ip, FONT_SMALL);
-                    let ip_x = (width as i32 - ip_width) / 2;
-                    canvas.draw_text(ip_x, y, ip, FONT_SMALL, colors.label);
+                    let ip_text = format!("IP: {}", ip);
+                    canvas.draw_text(margin, y, &ip_text, FONT_SMALL, colors.label);
                     y += canvas.line_height(FONT_SMALL) + 2;
                 }
             }
