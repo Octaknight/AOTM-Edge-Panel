@@ -800,7 +800,7 @@ impl AppState {
     /// Sets the theme by name.
     pub fn set_theme(&self, name: &str) -> Result<()> {
         // Validate theme exists
-        if !faces::available_themes().contains(&name) {
+        if !faces::available_themes().iter().any(|t| t.id == name) {
             return Err(anyhow::anyhow!("Unknown theme: {}", name));
         }
 
@@ -819,8 +819,8 @@ impl AppState {
         Ok(())
     }
 
-    /// Returns a list of available theme names.
-    pub fn available_themes(&self) -> Vec<&'static str> {
+    /// Returns a list of available themes.
+    pub fn available_themes(&self) -> Vec<faces::ThemeInfo> {
         faces::available_themes()
     }
 

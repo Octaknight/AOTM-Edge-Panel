@@ -62,28 +62,28 @@ impl Theme {
                 background: 0x1A0A00,
             },
             "solarized-light" | "solarized_light" => Self {
-                // Solarized Light - adjusted for better contrast
+                // Solarized Light
                 primary: 0x268BD2,    // Blue
                 secondary: 0x859900,  // Green
                 text: 0x073642,       // Base02 (darker for better contrast)
                 background: 0xFDF6E3, // Base3
             },
             "solarized-dark" | "solarized_dark" => Self {
-                // Solarized Dark - adjusted for better contrast
+                // Solarized Dark
                 primary: 0x268BD2,    // Blue
                 secondary: 0x2AA198,  // Cyan (more visible)
                 text: 0xEEE8D5,       // Base2 (brighter for better contrast)
                 background: 0x002B36, // Base03
             },
             "nord" => Self {
-                // Nord - already good contrast
+                // Nord
                 primary: 0x88C0D0,    // Nord8 (frost cyan)
                 secondary: 0x81A1C1,  // Nord9 (frost blue)
                 text: 0xECEFF4,       // Nord6 (snow storm white)
                 background: 0x2E3440, // Nord0
             },
             "tokyonight" | "tokyo-night" | "tokyo_night" => Self {
-                // Tokyo Night - brightened text
+                // Tokyo Night
                 primary: 0x7AA2F7,   // Blue
                 secondary: 0xBB9AF7, // Magenta
                 text: 0xE0E0FF,      // Brighter foreground
@@ -95,15 +95,24 @@ impl Theme {
     }
 }
 
-/// Returns a list of available theme preset names.
-pub fn available_themes() -> Vec<&'static str> {
+/// Information about an available theme.
+#[derive(Debug, Clone)]
+pub struct ThemeInfo {
+    /// Internal identifier used for setting the theme.
+    pub id: &'static str,
+    /// Human-readable display name.
+    pub display_name: &'static str,
+}
+
+/// Returns a list of available theme presets with display names.
+pub fn available_themes() -> Vec<ThemeInfo> {
     vec![
-        "ember",
-        "hacker",
-        "nord",
-        "solarized-dark",
-        "solarized-light",
-        "tokyonight",
+        ThemeInfo { id: "ember", display_name: "Ember" },
+        ThemeInfo { id: "hacker", display_name: "Hacker" },
+        ThemeInfo { id: "nord", display_name: "Nord" },
+        ThemeInfo { id: "solarized-dark", display_name: "Solarized Dark" },
+        ThemeInfo { id: "solarized-light", display_name: "Solarized Light" },
+        ThemeInfo { id: "tokyonight", display_name: "Tokyo Night" },
     ]
 }
 
@@ -396,9 +405,24 @@ pub fn create_face(name: &str) -> Option<Box<dyn Face>> {
     }
 }
 
-/// Returns a list of available face names.
-pub fn available_faces() -> Vec<&'static str> {
-    vec!["arcs", "ascii", "clock", "digits", "professional"]
+/// Information about an available face.
+#[derive(Debug, Clone)]
+pub struct FaceInfo {
+    /// Internal identifier used for setting the face.
+    pub id: &'static str,
+    /// Human-readable display name.
+    pub display_name: &'static str,
+}
+
+/// Returns a list of available faces with display names.
+pub fn available_faces() -> Vec<FaceInfo> {
+    vec![
+        FaceInfo { id: "arcs", display_name: "Arcs" },
+        FaceInfo { id: "ascii", display_name: "ASCII" },
+        FaceInfo { id: "clock", display_name: "Clock" },
+        FaceInfo { id: "digits", display_name: "Digits" },
+        FaceInfo { id: "professional", display_name: "Professional" },
+    ]
 }
 
 /// Returns available complications for a face by name.

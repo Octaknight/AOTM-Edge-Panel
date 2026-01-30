@@ -95,9 +95,11 @@ enum LcdCommands {
     },
     /// Set or show the current face
     Face {
-        /// Face name: arcs, ascii, digits, professional (omit to show current)
+        /// Face name (omit to show current)
         face: Option<String>,
     },
+    /// List available faces
+    ListFaces,
     /// Set or show the refresh interval
     Refresh {
         /// Refresh interval in milliseconds (1500-10000, omit to show current)
@@ -227,6 +229,13 @@ async fn handle_lcd(action: LcdCommands, client: &DaemonClient) -> Result<()> {
             } else {
                 let current = client.get_face().await?;
                 println!("Current face: {}", current);
+            }
+        }
+        LcdCommands::ListFaces => {
+            let faces = client.list_face_ids().await?;
+            println!("Available faces:");
+            for face in faces {
+                println!("  {}", face);
             }
         }
         LcdCommands::Refresh { milliseconds } => {

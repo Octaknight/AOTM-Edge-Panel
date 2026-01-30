@@ -55,8 +55,17 @@ trait Daemon1 {
     /// Sets the color theme by name.
     fn set_theme(&self, name: &str) -> zbus::Result<()>;
 
-    /// Lists available color themes.
+    /// Lists available color themes (IDs only).
     fn list_themes(&self) -> zbus::Result<Vec<String>>;
+
+    /// Lists available color themes with display names (JSON-encoded).
+    fn list_themes_detailed(&self) -> zbus::Result<Vec<String>>;
+
+    /// Lists available faces (IDs only).
+    fn list_face_ids(&self) -> zbus::Result<Vec<String>>;
+
+    /// Lists available faces with display names (JSON-encoded).
+    fn list_faces(&self) -> zbus::Result<Vec<String>>;
 
     /// Gets the refresh interval in milliseconds.
     fn get_refresh_interval(&self) -> zbus::Result<u32>;
@@ -270,12 +279,36 @@ impl DaemonClient {
             .context("Failed to set theme via D-Bus")
     }
 
-    /// Lists available color themes.
+    /// Lists available color themes (IDs only).
     pub async fn list_themes(&self) -> Result<Vec<String>> {
         self.proxy
             .list_themes()
             .await
             .context("Failed to list themes via D-Bus")
+    }
+
+    /// Lists available color themes with display names (JSON-encoded).
+    pub async fn list_themes_detailed(&self) -> Result<Vec<String>> {
+        self.proxy
+            .list_themes_detailed()
+            .await
+            .context("Failed to list themes detailed via D-Bus")
+    }
+
+    /// Lists available faces (IDs only).
+    pub async fn list_face_ids(&self) -> Result<Vec<String>> {
+        self.proxy
+            .list_face_ids()
+            .await
+            .context("Failed to list face IDs via D-Bus")
+    }
+
+    /// Lists available faces with display names (JSON-encoded).
+    pub async fn list_faces(&self) -> Result<Vec<String>> {
+        self.proxy
+            .list_faces()
+            .await
+            .context("Failed to list faces via D-Bus")
     }
 
     /// Gets the refresh interval in milliseconds.

@@ -11,8 +11,24 @@ use axum::{
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::faces::{complication_options, complications, ComplicationOptionType};
+use crate::faces::{
+    available_faces, available_themes, complication_options, complications, ComplicationOptionType,
+};
 use crate::state::AppState;
+
+/// Face option for template rendering.
+#[derive(Clone)]
+struct FaceOption {
+    id: String,
+    display_name: String,
+}
+
+/// Theme option for template rendering.
+#[derive(Clone)]
+struct ThemeOption {
+    id: String,
+    display_name: String,
+}
 use ht32_panel_hw::Orientation;
 
 /// Main index page template.
@@ -39,6 +55,7 @@ struct OrientationTemplate {
 #[template(path = "partials/face.html")]
 struct FaceTemplate {
     current: String,
+    faces: Vec<FaceOption>,
 }
 
 /// LED controls partial template.
@@ -56,7 +73,7 @@ struct LedTemplate {
 #[template(path = "partials/theme.html")]
 struct ThemeTemplate {
     current: String,
-    themes: Vec<String>,
+    themes: Vec<ThemeOption>,
 }
 
 /// Preview partial template.
@@ -179,7 +196,14 @@ async fn orientation_set(
 /// GET /face - Face controls partial
 async fn face_get(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current = state.face_name();
-    Html(FaceTemplate { current }.render().unwrap())
+    let faces: Vec<FaceOption> = available_faces()
+        .iter()
+        .map(|f| FaceOption {
+            id: f.id.to_string(),
+            display_name: f.display_name.to_string(),
+        })
+        .collect();
+    Html(FaceTemplate { current, faces }.render().unwrap())
 }
 
 /// Form data for face.
@@ -195,7 +219,14 @@ async fn face_set(
 ) -> impl IntoResponse {
     let _ = state.set_face(&form.face);
     let current = state.face_name();
-    Html(FaceTemplate { current }.render().unwrap())
+    let faces: Vec<FaceOption> = available_faces()
+        .iter()
+        .map(|f| FaceOption {
+            id: f.id.to_string(),
+            display_name: f.display_name.to_string(),
+        })
+        .collect();
+    Html(FaceTemplate { current, faces }.render().unwrap())
 }
 
 /// GET /led - LED controls partial
@@ -260,10 +291,12 @@ async fn led_set(
 /// GET /theme - Theme controls partial
 async fn theme_get(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current = state.theme_name();
-    let themes: Vec<String> = state
-        .available_themes()
+    let themes: Vec<ThemeOption> = available_themes()
         .iter()
-        .map(|s| s.to_string())
+        .map(|t| ThemeOption {
+            id: t.id.to_string(),
+            display_name: t.display_name.to_string(),
+        })
         .collect();
     Html(ThemeTemplate { current, themes }.render().unwrap())
 }
@@ -281,10 +314,12 @@ async fn theme_set(
 ) -> impl IntoResponse {
     let _ = state.set_theme(&form.theme);
     let current = state.theme_name();
-    let themes: Vec<String> = state
-        .available_themes()
+    let themes: Vec<ThemeOption> = available_themes()
         .iter()
-        .map(|s| s.to_string())
+        .map(|t| ThemeOption {
+            id: t.id.to_string(),
+            display_name: t.display_name.to_string(),
+        })
         .collect();
     Html(ThemeTemplate { current, themes }.render().unwrap())
 }

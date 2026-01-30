@@ -116,12 +116,51 @@ impl Daemon1Interface {
         Ok(())
     }
 
-    /// Lists available color themes.
+    /// Lists available color themes (IDs only, for backwards compatibility).
     fn list_themes(&self) -> Vec<String> {
         self.state
             .available_themes()
             .iter()
-            .map(|s| s.to_string())
+            .map(|t| t.id.to_string())
+            .collect()
+    }
+
+    /// Lists available color themes with display names.
+    /// Returns JSON-encoded theme data.
+    fn list_themes_detailed(&self) -> Vec<String> {
+        self.state
+            .available_themes()
+            .iter()
+            .map(|t| {
+                serde_json::json!({
+                    "id": t.id,
+                    "display_name": t.display_name
+                })
+                .to_string()
+            })
+            .collect()
+    }
+
+    /// Lists available faces (IDs only).
+    fn list_face_ids(&self) -> Vec<String> {
+        crate::faces::available_faces()
+            .iter()
+            .map(|f| f.id.to_string())
+            .collect()
+    }
+
+    /// Lists available faces with display names.
+    /// Returns JSON-encoded face data.
+    fn list_faces(&self) -> Vec<String> {
+        crate::faces::available_faces()
+            .iter()
+            .map(|f| {
+                serde_json::json!({
+                    "id": f.id,
+                    "display_name": f.display_name
+                })
+                .to_string()
+            })
             .collect()
     }
 
