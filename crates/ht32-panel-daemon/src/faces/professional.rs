@@ -374,6 +374,7 @@ impl Face for ProfessionalFace {
             let bar_width = (width as i32 - bar_x - margin - 40) as u32; // Leave room for temp
 
             // Hostname (always shown)
+            y = 5;
             canvas.draw_text(margin, y, &data.hostname, FONT_LARGE, colors.highlight);
 
             // Complication: Time (right-aligned)
@@ -477,7 +478,7 @@ impl Face for ProfessionalFace {
                 colors.bar_ram,
                 colors.bar_bg,
             );
-            y += line_height + 2;
+            y += line_height + 4;
 
             // DSK: label line, then graph on next line
             if is_enabled(complication_names::DISK_IO) {
@@ -504,7 +505,7 @@ impl Face for ProfessionalFace {
                     colors.bar_disk,
                     colors.bar_bg,
                 );
-                y += GRAPH_HEIGHT as i32 + 2;
+                y += GRAPH_HEIGHT as i32 + 4;
             }
 
             // NET: label line, then graph on next line
