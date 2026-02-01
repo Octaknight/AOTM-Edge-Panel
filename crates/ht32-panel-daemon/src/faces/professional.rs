@@ -383,7 +383,7 @@ impl Face for ProfessionalFace {
                     // Draw small analog clock on the right
                     let clock_radius = 10_u32;
                     let clock_cx = width as i32 - margin - clock_radius as i32;
-                    let clock_cy = y + clock_radius as i32;
+                    let clock_cy = y + clock_radius as i32 + 2;
                     draw_mini_analog_clock(
                         canvas,
                         clock_cx,
@@ -505,7 +505,7 @@ impl Face for ProfessionalFace {
                     colors.bar_disk,
                     colors.bar_bg,
                 );
-                y += GRAPH_HEIGHT as i32 + 4;
+                y += GRAPH_HEIGHT as i32 + 8;
             }
 
             // NET: label line, then graph on next line
