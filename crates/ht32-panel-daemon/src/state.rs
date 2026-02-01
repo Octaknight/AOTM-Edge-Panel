@@ -82,7 +82,7 @@ fn default_led_value() -> u8 {
 }
 
 fn default_refresh_rate() -> u32 {
-    60 // 60 Hz default
+    30 // 30 Hz default
 }
 
 impl Default for DisplaySettings {
@@ -471,9 +471,9 @@ impl AppState {
         }
     }
 
-    /// Sets the refresh rate in Hz (clamped to 1-120).
+    /// Sets the refresh rate in Hz (clamped to 30-120).
     pub fn set_refresh_rate(&self, hz: u32) {
-        let clamped = hz.clamp(1, 120);
+        let clamped = hz.clamp(30, 120);
         *self.refresh_rate.write().unwrap() = clamped;
         self.save_display_settings();
         info!("Refresh rate set to {}Hz ({}ms)", clamped, 1000 / clamped);
