@@ -468,6 +468,127 @@ impl Canvas {
         }
     }
 
+    /// Draws a dual-series scrolling line graph from historical data.
+    ///
+    /// # Arguments
+    /// * `x` - X position (left edge)
+    /// * `y` - Y position (top edge)
+    /// * `width` - Width of the graph area
+    /// * `height` - Height of the graph area
+    /// * `data1` - First data series (e.g., read/rx rates)
+    /// * `data2` - Second data series (e.g., write/tx rates)
+    /// * `max_value` - Maximum value for scaling (values above this are clamped)
+    /// * `color1` - Color for first series
+    /// * `color2` - Color for second series
+    /// * `bg_color` - Background color for the graph area
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw_dual_graph(
+        &mut self,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        data1: &VecDeque<f64>,
+        data2: &VecDeque<f64>,
+        max_value: f64,
+        color1: u32,
+        color2: u32,
+        bg_color: u32,
+    ) {
+        debug_assert!(
+            x >= 0 && y >= 0,
+            "draw_dual_graph: negative coordinates ({}, {})",
+            x,
+            y
+        );
+        debug_assert!(
+            x + width as i32 <= self.width as i32,
+            "draw_dual_graph: x overflow ({} + {} > {})",
+            x,
+            width,
+            self.width
+        );
+        debug_assert!(
+            y + height as i32 <= self.height as i32,
+            "draw_dual_graph: y overflow ({} + {} > {})",
+            y,
+            height,
+            self.height
+        );
+
+        // Draw background
+        let r = ((bg_color >> 16) & 0xFF) as f32 / 255.0;
+        let g = ((bg_color >> 8) & 0xFF) as f32 / 255.0;
+        let b = (bg_color & 0xFF) as f32 / 255.0;
+        let mut paint = Paint::default();
+        paint.set_color(Color::from_rgba(r, g, b, 1.0).unwrap());
+        if let Some(rect) = Rect::from_xywh(x as f32, y as f32, width as f32, height as f32) {
+            self.pixmap
+                .fill_rect(rect, &paint, Transform::identity(), None);
+        }
+
+        if (data1.is_empty() && data2.is_empty()) || max_value <= 0.0 {
+            return;
+        }
+
+        // Use the longer of the two series for bar width calculation
+        let num_points = data1.len().max(data2.len());
+        if num_points == 0 {
+            return;
+        }
+        let bar_width = (width as f64 / num_points as f64).max(1.0);
+
+        // Compute highlight colors for high values
+        let high_color1 = brighten_color(color1, 1.4);
+        let high_color2 = brighten_color(color2, 1.4);
+        let max_color = 0xFFFFFF;
+
+        // Draw first series (e.g., read/rx) - draw from bottom
+        for (i, &value) in data1.iter().enumerate() {
+            let normalized = (value / max_value).min(1.0);
+            let bar_height = (normalized * height as f64) as u32;
+
+            if bar_height > 0 {
+                let bar_x = x + (i as f64 * bar_width) as i32;
+                let bar_y = y + (height - bar_height) as i32;
+
+                let color = if normalized >= 1.0 {
+                    max_color
+                } else if normalized >= 0.95 {
+                    high_color1
+                } else {
+                    color1
+                };
+
+                self.fill_rect(bar_x, bar_y, bar_width.ceil() as u32, bar_height, color);
+            }
+        }
+
+        // Draw second series (e.g., write/tx) - draw on top with some transparency effect
+        // We draw slightly thinner bars offset by 1 pixel to create layered effect
+        for (i, &value) in data2.iter().enumerate() {
+            let normalized = (value / max_value).min(1.0);
+            let bar_height = (normalized * height as f64) as u32;
+
+            if bar_height > 0 {
+                let bar_x = x + (i as f64 * bar_width) as i32;
+                let bar_y = y + (height - bar_height) as i32;
+
+                let color = if normalized >= 1.0 {
+                    max_color
+                } else if normalized >= 0.95 {
+                    high_color2
+                } else {
+                    color2
+                };
+
+                // Draw slightly narrower bars for the overlay effect
+                let overlay_width = (bar_width * 0.6).ceil() as u32;
+                self.fill_rect(bar_x, bar_y, overlay_width, bar_height, color);
+            }
+        }
+    }
+
     /// Renders the canvas to a framebuffer.
     pub fn render_to_framebuffer(&self, fb: &mut Framebuffer) -> Result<()> {
         let pixels = self.pixmap.pixels();

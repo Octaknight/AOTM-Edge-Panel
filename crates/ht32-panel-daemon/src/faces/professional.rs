@@ -53,14 +53,22 @@ struct FaceColors {
     bar_cpu: u32,
     /// RAM bar fill color
     bar_ram: u32,
-    /// Disk bar fill color
-    bar_disk: u32,
-    /// Network bar fill color
-    bar_net: u32,
+    /// Disk read bar fill color
+    bar_disk_read: u32,
+    /// Disk write bar fill color
+    bar_disk_write: u32,
+    /// Network receive bar fill color
+    bar_net_rx: u32,
+    /// Network transmit bar fill color
+    bar_net_tx: u32,
 }
 
 impl FaceColors {
     fn from_theme(theme: &Theme) -> Self {
+        // Create distinct shades for read/write and rx/tx
+        let disk_base = dim_color(theme.primary, theme.secondary, 0.5);
+        let net_base = theme.secondary;
+
         Self {
             highlight: theme.primary,
             text: theme.text,
@@ -68,8 +76,12 @@ impl FaceColors {
             bar_bg: dim_color(theme.primary, theme.background, 0.2),
             bar_cpu: theme.primary,
             bar_ram: theme.secondary,
-            bar_disk: dim_color(theme.primary, theme.secondary, 0.5), // Blend of primary/secondary
-            bar_net: theme.secondary,
+            // Disk: read is brighter, write is dimmer
+            bar_disk_read: disk_base,
+            bar_disk_write: dim_color(disk_base, theme.background, 0.6),
+            // Network: rx (download) is brighter, tx (upload) is dimmer
+            bar_net_rx: net_base,
+            bar_net_tx: dim_color(net_base, theme.background, 0.6),
         }
     }
 }
@@ -317,24 +329,31 @@ impl Face for ProfessionalFace {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 canvas.draw_text(margin, y, "DSK:", FONT_SMALL, colors.dim);
-                let disk_rates = format!("R:{} W:{}", disk_r, disk_w);
-                let disk_rates_w = canvas.text_width(&disk_rates, FONT_SMALL);
+                // Draw R: and W: in their respective colors
+                let r_text = format!("R:{}", disk_r);
+                let w_text = format!(" W:{}", disk_w);
+                let w_text_w = canvas.text_width(&w_text, FONT_SMALL);
+                let r_text_w = canvas.text_width(&r_text, FONT_SMALL);
+                let r_x = width as i32 - margin - w_text_w - r_text_w;
+                canvas.draw_text(r_x, y, &r_text, FONT_SMALL, colors.bar_disk_read);
                 canvas.draw_text(
-                    width as i32 - margin - disk_rates_w,
+                    r_x + r_text_w,
                     y,
-                    &disk_rates,
+                    &w_text,
                     FONT_SMALL,
-                    colors.text,
+                    colors.bar_disk_write,
                 );
                 y += line_height;
-                canvas.draw_graph(
+                canvas.draw_dual_graph(
                     margin,
                     y,
                     bar_width,
                     GRAPH_HEIGHT,
-                    &data.disk_history,
+                    &data.disk_read_history,
+                    &data.disk_write_history,
                     SystemData::compute_graph_scale(&data.disk_history),
-                    colors.bar_disk,
+                    colors.bar_disk_read,
+                    colors.bar_disk_write,
                     colors.bar_bg,
                 );
                 y += GRAPH_HEIGHT as i32 + section_spacing;
@@ -345,24 +364,25 @@ impl Face for ProfessionalFace {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 canvas.draw_text(margin, y, "NET:", FONT_SMALL, colors.dim);
-                let net_rates = format!("\u{2193}:{} \u{2191}:{}", net_rx, net_tx);
-                let net_rates_w = canvas.text_width(&net_rates, FONT_SMALL);
-                canvas.draw_text(
-                    width as i32 - margin - net_rates_w,
-                    y,
-                    &net_rates,
-                    FONT_SMALL,
-                    colors.text,
-                );
+                // Draw ↓: and ↑: in their respective colors
+                let rx_text = format!("\u{2193}:{}", net_rx);
+                let tx_text = format!(" \u{2191}:{}", net_tx);
+                let tx_text_w = canvas.text_width(&tx_text, FONT_SMALL);
+                let rx_text_w = canvas.text_width(&rx_text, FONT_SMALL);
+                let rx_x = width as i32 - margin - tx_text_w - rx_text_w;
+                canvas.draw_text(rx_x, y, &rx_text, FONT_SMALL, colors.bar_net_rx);
+                canvas.draw_text(rx_x + rx_text_w, y, &tx_text, FONT_SMALL, colors.bar_net_tx);
                 y += line_height;
-                canvas.draw_graph(
+                canvas.draw_dual_graph(
                     margin,
                     y,
                     bar_width,
                     GRAPH_HEIGHT,
-                    &data.net_history,
+                    &data.net_rx_history,
+                    &data.net_tx_history,
                     SystemData::compute_graph_scale(&data.net_history),
-                    colors.bar_net,
+                    colors.bar_net_rx,
+                    colors.bar_net_tx,
                     colors.bar_bg,
                 );
             }
@@ -485,24 +505,31 @@ impl Face for ProfessionalFace {
                 let disk_r = SystemData::format_rate_compact(data.disk_read_rate);
                 let disk_w = SystemData::format_rate_compact(data.disk_write_rate);
                 canvas.draw_text(margin, y, "DSK:", FONT_SMALL, colors.dim);
-                let disk_rates = format!("R:{} W:{}", disk_r, disk_w);
-                let disk_rates_w = canvas.text_width(&disk_rates, FONT_SMALL);
+                // Draw R: and W: in their respective colors
+                let r_text = format!("R:{}", disk_r);
+                let w_text = format!(" W:{}", disk_w);
+                let w_text_w = canvas.text_width(&w_text, FONT_SMALL);
+                let r_text_w = canvas.text_width(&r_text, FONT_SMALL);
+                let r_x = width as i32 - margin - w_text_w - r_text_w;
+                canvas.draw_text(r_x, y, &r_text, FONT_SMALL, colors.bar_disk_read);
                 canvas.draw_text(
-                    width as i32 - margin - disk_rates_w,
+                    r_x + r_text_w,
                     y,
-                    &disk_rates,
+                    &w_text,
                     FONT_SMALL,
-                    colors.text,
+                    colors.bar_disk_write,
                 );
                 y += line_height + 4;
-                canvas.draw_graph(
+                canvas.draw_dual_graph(
                     margin,
                     y,
                     width - (margin * 2) as u32,
                     GRAPH_HEIGHT,
-                    &data.disk_history,
+                    &data.disk_read_history,
+                    &data.disk_write_history,
                     SystemData::compute_graph_scale(&data.disk_history),
-                    colors.bar_disk,
+                    colors.bar_disk_read,
+                    colors.bar_disk_write,
                     colors.bar_bg,
                 );
                 y += GRAPH_HEIGHT as i32 + 4;
@@ -513,24 +540,25 @@ impl Face for ProfessionalFace {
                 let net_rx = SystemData::format_rate_compact(data.net_rx_rate);
                 let net_tx = SystemData::format_rate_compact(data.net_tx_rate);
                 canvas.draw_text(margin, y, "NET:", FONT_SMALL, colors.dim);
-                let net_rates = format!("\u{2193}:{} \u{2191}:{}", net_rx, net_tx);
-                let net_rates_w = canvas.text_width(&net_rates, FONT_SMALL);
-                canvas.draw_text(
-                    width as i32 - margin - net_rates_w,
-                    y,
-                    &net_rates,
-                    FONT_SMALL,
-                    colors.text,
-                );
+                // Draw ↓: and ↑: in their respective colors
+                let rx_text = format!("\u{2193}:{}", net_rx);
+                let tx_text = format!(" \u{2191}:{}", net_tx);
+                let tx_text_w = canvas.text_width(&tx_text, FONT_SMALL);
+                let rx_text_w = canvas.text_width(&rx_text, FONT_SMALL);
+                let rx_x = width as i32 - margin - tx_text_w - rx_text_w;
+                canvas.draw_text(rx_x, y, &rx_text, FONT_SMALL, colors.bar_net_rx);
+                canvas.draw_text(rx_x + rx_text_w, y, &tx_text, FONT_SMALL, colors.bar_net_tx);
                 y += line_height + 4;
-                canvas.draw_graph(
+                canvas.draw_dual_graph(
                     margin,
                     y,
                     width - (margin * 2) as u32,
                     GRAPH_HEIGHT,
-                    &data.net_history,
+                    &data.net_rx_history,
+                    &data.net_tx_history,
                     SystemData::compute_graph_scale(&data.net_history),
-                    colors.bar_net,
+                    colors.bar_net_rx,
+                    colors.bar_net_tx,
                     colors.bar_bg,
                 );
             }

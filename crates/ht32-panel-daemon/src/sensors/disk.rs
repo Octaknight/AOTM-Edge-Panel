@@ -17,6 +17,10 @@ pub struct DiskSensor {
     last_write_rate: f64,
     /// History of combined I/O rates (bytes/sec)
     history: VecDeque<f64>,
+    /// History of read rates (bytes/sec)
+    read_history: VecDeque<f64>,
+    /// History of write rates (bytes/sec)
+    write_history: VecDeque<f64>,
 }
 
 impl DiskSensor {
@@ -31,6 +35,8 @@ impl DiskSensor {
             last_read_rate: 0.0,
             last_write_rate: 0.0,
             history: VecDeque::with_capacity(HISTORY_SIZE),
+            read_history: VecDeque::with_capacity(HISTORY_SIZE),
+            write_history: VecDeque::with_capacity(HISTORY_SIZE),
         }
     }
 
@@ -93,6 +99,16 @@ impl DiskSensor {
     pub fn history(&self) -> &VecDeque<f64> {
         &self.history
     }
+
+    /// Returns the read rate history (bytes/sec).
+    pub fn read_history(&self) -> &VecDeque<f64> {
+        &self.read_history
+    }
+
+    /// Returns the write rate history (bytes/sec).
+    pub fn write_history(&self) -> &VecDeque<f64> {
+        &self.write_history
+    }
 }
 
 impl Sensor for DiskSensor {
@@ -119,6 +135,16 @@ impl Sensor for DiskSensor {
                         self.history.pop_front();
                     }
                     self.history.push_back(combined);
+
+                    // Record separate read/write histories
+                    if self.read_history.len() >= HISTORY_SIZE {
+                        self.read_history.pop_front();
+                    }
+                    self.read_history.push_back(self.last_read_rate);
+                    if self.write_history.len() >= HISTORY_SIZE {
+                        self.write_history.pop_front();
+                    }
+                    self.write_history.push_back(self.last_write_rate);
                 }
             }
 

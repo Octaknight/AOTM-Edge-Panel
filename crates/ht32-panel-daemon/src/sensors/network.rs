@@ -28,6 +28,10 @@ pub struct NetworkSensor {
     last_ip_check: Option<Instant>,
     /// History of combined I/O rates (bytes/sec)
     history: VecDeque<f64>,
+    /// History of receive rates (bytes/sec)
+    rx_history: VecDeque<f64>,
+    /// History of transmit rates (bytes/sec)
+    tx_history: VecDeque<f64>,
 }
 
 impl NetworkSensor {
@@ -47,6 +51,8 @@ impl NetworkSensor {
             cached_ipv6_ula: None,
             last_ip_check: None,
             history: VecDeque::with_capacity(HISTORY_SIZE),
+            rx_history: VecDeque::with_capacity(HISTORY_SIZE),
+            tx_history: VecDeque::with_capacity(HISTORY_SIZE),
         }
     }
 
@@ -73,6 +79,8 @@ impl NetworkSensor {
         self.cached_ipv6_ula = None;
         self.last_ip_check = None;
         self.history.clear();
+        self.rx_history.clear();
+        self.tx_history.clear();
         info!("Network sensor switched to interface: {}", interface);
     }
 
@@ -169,6 +177,16 @@ impl NetworkSensor {
     /// Returns the I/O history (combined rx+tx rates).
     pub fn history(&self) -> &VecDeque<f64> {
         &self.history
+    }
+
+    /// Returns the receive rate history (bytes/sec).
+    pub fn rx_history(&self) -> &VecDeque<f64> {
+        &self.rx_history
+    }
+
+    /// Returns the transmit rate history (bytes/sec).
+    pub fn tx_history(&self) -> &VecDeque<f64> {
+        &self.tx_history
     }
 
     /// Returns the IPv4 address for this interface (cached, refreshed every 30s).
@@ -309,6 +327,16 @@ impl Sensor for NetworkSensor {
                         self.history.pop_front();
                     }
                     self.history.push_back(combined);
+
+                    // Record separate rx/tx histories
+                    if self.rx_history.len() >= HISTORY_SIZE {
+                        self.rx_history.pop_front();
+                    }
+                    self.rx_history.push_back(self.last_rx_rate);
+                    if self.tx_history.len() >= HISTORY_SIZE {
+                        self.tx_history.pop_front();
+                    }
+                    self.tx_history.push_back(self.last_tx_rate);
                 }
             }
 

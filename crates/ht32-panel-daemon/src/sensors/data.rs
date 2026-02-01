@@ -99,6 +99,10 @@ pub struct SystemData {
     pub disk_write_rate: f64,
     /// Disk I/O history (combined read+write rates, newest last)
     pub disk_history: VecDeque<f64>,
+    /// Disk read history (bytes/sec, newest last)
+    pub disk_read_history: VecDeque<f64>,
+    /// Disk write history (bytes/sec, newest last)
+    pub disk_write_history: VecDeque<f64>,
     /// Network interface name
     pub net_interface: String,
     /// Network receive rate in bytes/second
@@ -107,6 +111,10 @@ pub struct SystemData {
     pub net_tx_rate: f64,
     /// Network I/O history (combined rx+tx rates, newest last)
     pub net_history: VecDeque<f64>,
+    /// Network receive history (bytes/sec, newest last)
+    pub net_rx_history: VecDeque<f64>,
+    /// Network transmit history (bytes/sec, newest last)
+    pub net_tx_history: VecDeque<f64>,
     /// IP address to display (based on preference)
     pub display_ip: Option<String>,
 }

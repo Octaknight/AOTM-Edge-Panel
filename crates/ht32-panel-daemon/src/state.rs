@@ -171,10 +171,14 @@ impl Sensors {
             disk_read_rate: self.disk.read_rate(),
             disk_write_rate: self.disk.write_rate(),
             disk_history: self.disk.history().clone(),
+            disk_read_history: self.disk.read_history().clone(),
+            disk_write_history: self.disk.write_history().clone(),
             net_interface: self.network.interface_name().to_string(),
             net_rx_rate: self.network.rx_rate(),
             net_tx_rate: self.network.tx_rate(),
             net_history: self.network.history().clone(),
+            net_rx_history: self.network.rx_history().clone(),
+            net_tx_history: self.network.tx_history().clone(),
             display_ip,
         }
     }
