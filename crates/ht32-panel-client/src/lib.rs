@@ -326,7 +326,6 @@ impl DaemonClient {
             .context("Failed to list faces via D-Bus")
     }
 
-    /// Gets the refresh interval in milliseconds.
     /// Lists available network interfaces.
     pub async fn list_network_interfaces(&self) -> Result<Vec<String>> {
         self.proxy

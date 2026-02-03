@@ -7,8 +7,8 @@ enable = false
 # Server listen address
 listen = "[::1]:8686"
 
-# Display refresh rate (Hz)
-refresh_rate = 2
+# Display refresh interval (milliseconds, 500-10000)
+refresh_interval = 2500
 
 # Heartbeat interval (milliseconds)
 heartbeat = 1000

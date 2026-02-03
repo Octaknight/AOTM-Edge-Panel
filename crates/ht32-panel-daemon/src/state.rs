@@ -48,9 +48,9 @@ pub struct DisplaySettings {
     #[serde(default = "default_led_value")]
     pub led_speed: u8,
 
-    /// Refresh rate in Hz (1-120).
-    #[serde(default = "default_refresh_rate")]
-    pub refresh_rate: u32,
+    /// Refresh interval in milliseconds (500-10000).
+    #[serde(default = "default_refresh_interval")]
+    pub refresh_interval: u32,
 
     /// Network interface to monitor (legacy - migrated to complications).
     #[serde(default, skip_serializing)]
@@ -81,8 +81,8 @@ fn default_led_value() -> u8 {
     3
 }
 
-fn default_refresh_rate() -> u32 {
-    2 // 2 Hz default
+fn default_refresh_interval() -> u32 {
+    2500 // 2.5s default
 }
 
 impl Default for DisplaySettings {
@@ -94,7 +94,7 @@ impl Default for DisplaySettings {
             led_theme: default_led_theme(),
             led_intensity: default_led_value(),
             led_speed: default_led_value(),
-            refresh_rate: default_refresh_rate(),
+            refresh_interval: default_refresh_interval(),
             network_interface: None,
             ip_display: None,
             complications: EnabledComplications::new(),
@@ -227,8 +227,8 @@ pub struct AppState {
     /// Current color theme name
     theme_name: RwLock<String>,
 
-    /// Refresh rate in Hz (1-120)
-    refresh_rate: RwLock<u32>,
+    /// Refresh interval in milliseconds (500-10000)
+    refresh_interval: RwLock<u32>,
 
     /// Enabled complications per face (with options)
     complications: RwLock<EnabledComplications>,
@@ -353,7 +353,7 @@ impl AppState {
             sensors: Mutex::new(sensors),
             face: RwLock::new(face),
             theme_name: RwLock::new(settings.theme),
-            refresh_rate: RwLock::new(settings.refresh_rate),
+            refresh_interval: RwLock::new(settings.refresh_interval),
             complications: RwLock::new(complications),
         })
     }
@@ -378,7 +378,7 @@ impl AppState {
             led_theme: *self.led_theme.read().unwrap(),
             led_intensity: *self.led_intensity.read().unwrap(),
             led_speed: *self.led_speed.read().unwrap(),
-            refresh_rate: *self.refresh_rate.read().unwrap(),
+            refresh_interval: *self.refresh_interval.read().unwrap(),
             network_interface: None, // Legacy field, skip serializing
             ip_display: None,        // Legacy field, skip serializing
             complications: self.complications.read().unwrap().clone(),
@@ -456,27 +456,22 @@ impl AppState {
         Ok(())
     }
 
-    /// Gets the current refresh rate in Hz.
-    pub fn refresh_rate(&self) -> u32 {
-        *self.refresh_rate.read().unwrap()
+    /// Gets the current refresh interval in milliseconds.
+    pub fn refresh_interval(&self) -> u32 {
+        *self.refresh_interval.read().unwrap()
     }
 
-    /// Gets the current refresh interval in milliseconds (derived from Hz).
+    /// Gets the current refresh interval in milliseconds.
     pub fn refresh_interval_ms(&self) -> u32 {
-        let hz = *self.refresh_rate.read().unwrap();
-        if hz == 0 {
-            1000 // Fallback to 1Hz
-        } else {
-            1000 / hz
-        }
+        *self.refresh_interval.read().unwrap()
     }
 
-    /// Sets the refresh rate in Hz (clamped to 1-30).
-    pub fn set_refresh_rate(&self, hz: u32) {
-        let clamped = hz.clamp(1, 30);
-        *self.refresh_rate.write().unwrap() = clamped;
+    /// Sets the refresh interval in milliseconds (clamped to 500-10000).
+    pub fn set_refresh_interval(&self, ms: u32) {
+        let clamped = ms.clamp(500, 10000);
+        *self.refresh_interval.write().unwrap() = clamped;
         self.save_display_settings();
-        info!("Refresh rate set to {}Hz ({}ms)", clamped, 1000 / clamped);
+        info!("Refresh interval set to {}ms", clamped);
     }
 
     /// Gets the current LED settings.
@@ -847,7 +842,7 @@ impl AppState {
             led_theme: *self.led_theme.read().unwrap(),
             led_intensity: *self.led_intensity.read().unwrap(),
             led_speed: *self.led_speed.read().unwrap(),
-            refresh_rate: *self.refresh_rate.read().unwrap(),
+            refresh_interval: *self.refresh_interval.read().unwrap(),
             network_interface: None,
             ip_display: None,
             complications: self.complications.read().unwrap().clone(),

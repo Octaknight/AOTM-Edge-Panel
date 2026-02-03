@@ -12,10 +12,6 @@ let
     dbus = {
       bus = cfg.dbus.bus;
     };
-    theme = cfg.theme;
-    poll = cfg.poll;
-    refresh = cfg.refresh;
-    heartbeat = cfg.heartbeat;
     devices = {
       lcd = cfg.devices.lcd;
       led = cfg.devices.led;
@@ -24,7 +20,12 @@ let
       width = cfg.canvas.width;
       height = cfg.canvas.height;
     };
-  } // cfg.extraSettings);
+  }
+  // lib.optionalAttrs (cfg.theme != null) { theme = cfg.theme; }
+  // lib.optionalAttrs (cfg.poll != null) { poll = cfg.poll; }
+  // lib.optionalAttrs (cfg.refresh != null) { refresh_interval = cfg.refresh; }
+  // lib.optionalAttrs (cfg.heartbeat != null) { heartbeat = cfg.heartbeat; }
+  // cfg.extraSettings);
 in
 {
   options.services.ht32-panel = {
@@ -94,26 +95,26 @@ in
     };
 
     theme = lib.mkOption {
-      type = lib.types.str;
-      default = "themes/default.toml";
+      type = lib.types.nullOr lib.types.str;
+      default = null;
       description = "Path to the theme configuration file.";
     };
 
     poll = lib.mkOption {
-      type = lib.types.int;
-      default = 500;
+      type = lib.types.nullOr lib.types.int;
+      default = null;
       description = "Render loop poll interval in milliseconds.";
     };
 
     refresh = lib.mkOption {
-      type = lib.types.int;
-      default = 1600;
-      description = "Display refresh rate in milliseconds.";
+      type = lib.types.nullOr lib.types.int;
+      default = null;
+      description = "Display refresh interval in milliseconds (500-10000).";
     };
 
     heartbeat = lib.mkOption {
-      type = lib.types.int;
-      default = 60000;
+      type = lib.types.nullOr lib.types.int;
+      default = null;
       description = "Heartbeat interval in milliseconds.";
     };
 

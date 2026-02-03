@@ -21,9 +21,9 @@ pub struct Config {
     #[serde(default = "default_state_dir")]
     pub state_dir: String,
 
-    /// Display refresh rate in Hz
-    #[serde(default = "default_refresh_rate")]
-    pub refresh_rate: u64,
+    /// Display refresh interval in milliseconds (500-10000)
+    #[serde(default = "default_refresh_interval")]
+    pub refresh_interval: u64,
 
     /// Heartbeat interval in milliseconds
     #[serde(default = "default_heartbeat")]
@@ -149,8 +149,8 @@ fn default_state_dir() -> String {
     }
 }
 
-fn default_refresh_rate() -> u64 {
-    2
+fn default_refresh_interval() -> u64 {
+    2500
 }
 
 fn default_heartbeat() -> u64 {
@@ -196,7 +196,7 @@ impl Default for Config {
             web: WebConfig::default(),
             dbus: DbusConfig::default(),
             state_dir: default_state_dir(),
-            refresh_rate: default_refresh_rate(),
+            refresh_interval: default_refresh_interval(),
             heartbeat: default_heartbeat(),
             devices: DevicesConfig::default(),
             canvas: CanvasConfig::default(),
