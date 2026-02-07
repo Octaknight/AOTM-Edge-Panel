@@ -1,8 +1,5 @@
 builds:
   exclude:
     - "packages.*.release-tarball"
-
-github:
-  releases:
-    enable: true
-    package: release-tarball
+    - "packages.*.release-appimage"
+    - "packages.*.release"

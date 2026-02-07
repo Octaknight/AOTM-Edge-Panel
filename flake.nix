@@ -101,6 +101,106 @@
             cp -r ${pkg}/share/ht32-panel/config/* dist/config/
             tar -czvf $out -C dist .
           '';
+
+          release-appimage = let
+            pkg = self.packages.${system}.default;
+            applet = self.packages.${system}.ht32-panel-applet;
+
+            appimageRuntime = pkgs.fetchurl {
+              url = "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64";
+              hash = "sha256-aVsj9WNco+vjSqKxe5GmxnDgSxaKWsxjjJZhttMvD88=";
+            };
+
+            # Collect all runtime library dependencies
+            libPath = pkgs.lib.makeLibraryPath (with pkgs; [
+              hidapi
+              libusb1
+              udev
+              systemd
+              dbus
+              glib
+              gtk3
+              libappindicator-gtk3
+              pango
+              cairo
+              gdk-pixbuf
+              atk
+              harfbuzz
+              fontconfig
+              freetype
+              libGL
+              xorg.libX11
+              xorg.libXcursor
+              xorg.libXrandr
+              xorg.libXi
+              xorg.libXext
+              xorg.libXrender
+              xorg.libXfixes
+              xorg.libXcomposite
+              xorg.libXdamage
+              xorg.libxcb
+              libxkbcommon
+              wayland
+            ]);
+          in pkgs.runCommand "ht32-panel-${version}-x86_64.AppImage" {
+            nativeBuildInputs = with pkgs; [ squashfsTools patchelf ];
+          } ''
+            # Create AppDir structure
+            mkdir -p AppDir/usr/bin
+            mkdir -p AppDir/usr/share/applications
+            mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+
+            # Copy binaries
+            cp ${pkg}/bin/ht32paneld AppDir/usr/bin/
+            cp ${pkg}/bin/ht32panelctl AppDir/usr/bin/
+            cp ${applet}/bin/ht32-panel-applet AppDir/usr/bin/
+            chmod +w AppDir/usr/bin/*
+
+            # Desktop file at root (required by AppImage spec)
+            cp ${./packaging/org.ht32panel.Daemon.desktop} AppDir/ht32-panel.desktop
+            cp ${./packaging/org.ht32panel.Daemon.desktop} AppDir/usr/share/applications/
+
+            # Icon at root (required by AppImage spec)
+            cp ${./packaging/org.ht32panel.Daemon.svg} AppDir/ht32-panel.svg
+            cp ${./packaging/org.ht32panel.Daemon.svg} AppDir/usr/share/icons/hicolor/scalable/apps/org.ht32panel.Daemon.svg
+            cp ${./packaging/org.ht32panel.Daemon.svg} AppDir/.DirIcon
+
+            # Create AppRun launcher
+            cat > AppDir/AppRun << 'APPRUN'
+#!/bin/bash
+set -e
+SELF=$(readlink -f "$0")
+APPDIR=''${SELF%/*}
+
+# Set library path for bundled binaries
+export LD_LIBRARY_PATH="LIBPATH:''${LD_LIBRARY_PATH}"
+
+# GTK/GLib settings
+export GSETTINGS_SCHEMA_DIR="/usr/share/glib-2.0/schemas:''${GSETTINGS_SCHEMA_DIR}"
+export GDK_PIXBUF_MODULE_FILE="/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+
+exec "''${APPDIR}/usr/bin/ht32-panel-applet" "$@"
+APPRUN
+            sed -i "s|LIBPATH|${libPath}|g" AppDir/AppRun
+            chmod +x AppDir/AppRun
+
+            # Create squashfs
+            mksquashfs AppDir appimage.squashfs -root-owned -noappend -comp zstd -quiet -no-progress
+
+            # Combine runtime + squashfs to create AppImage
+            cat ${appimageRuntime} appimage.squashfs > $out
+            chmod +x $out
+          '';
+
+          # Combined release with all artifacts for Garnix
+          release = let
+            tarball = self.packages.${system}.release-tarball;
+            appimage = self.packages.${system}.release-appimage;
+          in pkgs.runCommand "ht32-panel-${version}-release" {} ''
+            mkdir -p $out
+            cp ${tarball} $out/ht32-panel-${version}-x86_64-linux.tar.gz
+            cp ${appimage} $out/ht32-panel-${version}-x86_64.AppImage
+          '';
         };
 
         checks = {
