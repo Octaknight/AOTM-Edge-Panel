@@ -1,10 +1,13 @@
 # HT32 Panel
 
 [![Release](https://github.com/ananthb/ht32-panel/actions/workflows/release.yml/badge.svg)](https://github.com/ananthb/ht32-panel/actions/workflows/release.yml)
+[![Crates.io](https://img.shields.io/crates/v/ht32-panel-applet)](https://crates.io/crates/ht32-panel-applet)
+[![Crates.io](https://img.shields.io/crates/v/ht32-panel-cli)](https://crates.io/crates/ht32-panel-cli)
+[![Crates.io](https://img.shields.io/crates/v/ht32-panel-client)](https://crates.io/crates/ht32-panel-client)
 [![Crates.io](https://img.shields.io/crates/v/ht32-panel-daemon)](https://crates.io/crates/ht32-panel-daemon)
-[![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](LICENSE)
+[![Crates.io](https://img.shields.io/crates/v/ht32-panel-hw)](https://crates.io/crates/ht32-panel-hw)
 
-![ht32-panel](https://raw.githubusercontent.com/ananthb/ht32-panel/main/images/ht32-panel-ascii-landscape.png)
+![Panel Face](https://raw.githubusercontent.com/ananthb/ht32-panel/main/images/ht32-panel-ascii-landscape.png)
 
 Front-panel display and LED control for mini PCs with HT32-based LCD and RGB LEDs ([Skullsaints Agni](https://www.electroniksindia.com/products/agni-by-skullsaints-mini-pc-intel-twin-lake-n150-vibrant-lcd-screen-m-2-ssd-mini-tower-with-rgb-lights-wifi-6-4k-uhd-dual-lan-for-home-and-office), [AceMagic S1](https://acemagic.com/products/acemagic-s1-12th-alder-laker-n95-mini-pc), etc.).
 
