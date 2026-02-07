@@ -8,25 +8,21 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    devenv = {
-      url = "github:cachix/devenv";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  nixConfig = {
-    extra-trusted-public-keys = "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=";
-    extra-substituters = "https://devenv.cachix.org";
-  };
-
-  outputs = { self, nixpkgs, flake-utils, rust-overlay, devenv }@inputs:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     let
       cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
       version = cargoToml.workspace.package.version;
     in
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        overlays = [ rust-overlay.overlays.default ];
+        pkgs = import nixpkgs { inherit system overlays; };
+
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+          extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
+        };
 
         nativeBuildInputs = with pkgs; [
           pkg-config
@@ -40,6 +36,12 @@
           systemd
           dbus
         ];
+
+        appletBuildInputs = buildInputs ++ (with pkgs; [
+          glib
+          gtk3
+          libappindicator-gtk3
+        ]);
 
         cargoArgs = {
           pname = "ht32-panel";
@@ -83,17 +85,87 @@
           ht32-panel-applet = pkgs.rustPlatform.buildRustPackage (cargoArgs // {
             pname = "ht32-panel-applet";
             cargoBuildFlags = [ "-p" "ht32-panel-applet" ];
-            buildInputs = buildInputs ++ (with pkgs; [
-              glib
-              gtk3
-              libappindicator-gtk3
-            ]);
+            buildInputs = appletBuildInputs;
           });
+
+          release-tarball = let
+            pkg = self.packages.${system}.default;
+            applet = self.packages.${system}.ht32-panel-applet;
+          in pkgs.runCommand "ht32-panel-${version}-x86_64-linux.tar.gz" {
+            nativeBuildInputs = [ pkgs.gzip ];
+          } ''
+            mkdir -p dist/config
+            cp ${pkg}/bin/ht32paneld dist/
+            cp ${pkg}/bin/ht32panelctl dist/
+            cp ${applet}/bin/ht32-panel-applet dist/
+            cp -r ${pkg}/share/ht32-panel/config/* dist/config/
+            tar -czvf $out -C dist .
+          '';
         };
 
-        devShells.default = devenv.lib.mkShell {
-          inherit inputs pkgs;
-          modules = [ ./devenv.nix ];
+        checks = {
+          fmt = pkgs.runCommand "check-fmt" {
+            buildInputs = [ rustToolchain ];
+            src = self;
+          } ''
+            cd $src
+            cargo fmt --all -- --check
+            touch $out
+          '';
+
+          clippy = pkgs.runCommand "check-clippy" {
+            buildInputs = [ rustToolchain ] ++ nativeBuildInputs ++ appletBuildInputs;
+            src = self;
+          } ''
+            cd $src
+            export HOME=$(mktemp -d)
+            cargo clippy --workspace --all-targets -- -D warnings
+            touch $out
+          '';
+
+          tests = pkgs.runCommand "check-tests" {
+            buildInputs = [ rustToolchain pkgs.cargo-nextest ] ++ nativeBuildInputs ++ appletBuildInputs;
+            src = self;
+          } ''
+            cd $src
+            export HOME=$(mktemp -d)
+            cargo nextest run --workspace -- --skip test_device_open
+            touch $out
+          '';
+        };
+
+        devShells.default = pkgs.mkShell {
+          name = "ht32-panel-dev";
+
+          packages = [
+            rustToolchain
+          ] ++ (with pkgs; [
+            # Development tools
+            cargo-nextest
+            cargo-watch
+            cargo-audit
+            cargo-outdated
+            just
+            watchexec
+
+            # Python (for flatpak-cargo-generator)
+            (python3.withPackages (ps: [ ps.aiohttp ps.toml ]))
+          ]) ++ nativeBuildInputs ++ appletBuildInputs;
+
+          RUST_BACKTRACE = "1";
+          RUST_LOG = "info";
+
+          shellHook = ''
+            echo ""
+            echo "HT32 Panel Development Environment"
+            echo ""
+            echo "Build:    cargo build --workspace"
+            echo "Test:     cargo nextest run --workspace"
+            echo "Lint:     cargo clippy --workspace --all-targets -- -D warnings"
+            echo "Format:   cargo fmt --all"
+            echo "Daemon:   cargo run -p ht32-panel-daemon -- config/default.toml"
+            echo ""
+          '';
         };
       }
     ) // {

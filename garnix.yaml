@@ -1,0 +1,8 @@
+builds:
+  exclude:
+    - "packages.*.release-tarball"
+
+github:
+  releases:
+    enable: true
+    package: release-tarball
