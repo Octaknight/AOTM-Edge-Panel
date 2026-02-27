@@ -43,7 +43,11 @@ impl ImageFace {
                     }
                 }
 
-                Pixmap::new_from_vec(data, tiny_skia::IntSize::from_wh(w, h)?)
+                if let Some(size) = tiny_skia::IntSize::from_wh(w, h) {
+                    return Some(Pixmap::from_vec(data, size).unwrap());
+                } else {
+                    return None;
+                }
             }
             Err(e) => {
                 error!("Failed to load image: {}", e);

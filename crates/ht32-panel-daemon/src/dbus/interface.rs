@@ -367,6 +367,15 @@ impl Daemon1Interface {
                                 "step": step
                             })
                         }
+                        crate::faces::ComplicationOptionType::Text => {
+                            serde_json::json!({
+                                "id": opt.id,
+                                "name": opt.name,
+                                "description": opt.description,
+                                "current_value": current_value,
+                                "type": "text",
+                            })
+                        }
                     }
                 }).collect();
 

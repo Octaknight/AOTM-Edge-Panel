@@ -506,6 +506,7 @@ fn render_complications(state: &Arc<AppState>) -> Html<String> {
                                 id: opt.id.clone(),
                                 name: opt.name.clone(),
                                 current_value,
+                                is_range: true,
                                 is_text: false,
                                 choices: Vec::new(),
                                 range: Some(ComplicationOptionRange {
