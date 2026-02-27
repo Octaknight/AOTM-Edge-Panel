@@ -20,8 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("  Manufacturer: {:?}", device.manufacturer_string());
             println!("  Product: {:?}", device.product_string());
             println!("  Interface: {}", device.interface_number());
-            println!("  Usage Page: {:04x}", device.usage_page());
-            println!("  Usage: {:04x}", device.usage());
+            // println!("  Usage Page: {:04x}", device.usage_page());
+            // println!("  Usage: {:04x}", device.usage());
             found = true;
         }
     }
