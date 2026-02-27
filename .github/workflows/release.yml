@@ -25,6 +25,7 @@ jobs:
         with:
           files: |
             result/*
+          body_path: .github/RELEASE_TEMPLATE.md
           generate_release_notes: true
 
   publish:
