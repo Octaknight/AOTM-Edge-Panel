@@ -168,13 +168,17 @@ async fn heartbeat_loop(state: Arc<AppState>, interval_ms: u64) {
             consecutive_errors += 1;
             let elapsed = last_error_log.elapsed();
             if consecutive_errors == 1 || elapsed >= std::time::Duration::from_secs(60) {
-                if consecutive_errors > 1 {
-                    warn!(
-                        "Heartbeat error (repeated {} times in {:?}): {}",
-                        consecutive_errors, elapsed, e
-                    );
-                } else {
-                    warn!("Heartbeat error: {}", e);
+                let error_msg = e.to_string();
+                // Suppress "hid_error is not implemented yet" which is a known issue in hidapi-rs/libusb backend
+                if !error_msg.contains("hid_error is not implemented yet") {
+                    if consecutive_errors > 1 {
+                        warn!(
+                            "Heartbeat error (repeated {} times in {:?}): {}",
+                            consecutive_errors, elapsed, e
+                        );
+                    } else {
+                        warn!("Heartbeat error: {}", e);
+                    }
                 }
                 last_error_log = std::time::Instant::now();
                 consecutive_errors = 0;
