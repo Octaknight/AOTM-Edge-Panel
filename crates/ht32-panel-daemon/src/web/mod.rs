@@ -523,8 +523,7 @@ fn render_complications(state: &Arc<AppState>) -> Html<String> {
                             is_text: true,
                             choices: Vec::new(),
                             range: None,
-                        },   }
-                        }
+                        },
                     }
                 })
                 .collect();
