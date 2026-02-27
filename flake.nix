@@ -126,7 +126,7 @@
 
             appimageRuntime = pkgs.fetchurl {
               url = "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64";
-              hash = "sha256-aVsj9WNco+vjSqKxe5GmxnDgSxaKWsxjjJZhttMvD88=";
+              hash = "sha256-J93T945IP8X3hW5BPXwXCSkX+MNb/jMYoNN4qpQ1rRc=";
             };
 
             # Collect all runtime library dependencies
