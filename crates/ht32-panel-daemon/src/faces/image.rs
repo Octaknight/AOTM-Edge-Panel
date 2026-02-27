@@ -26,8 +26,8 @@ impl ImageFace {
         info!("Loading image from: {}", path);
         match image::open(path) {
             Ok(img) => {
-                // Resize to fit canvas while preserving aspect ratio
-                let img = img.resize(width, height, image::imageops::FilterType::Lanczos3);
+                // Resize to fill canvas (cropping if necessary)
+                let img = img.resize_to_fill(width, height, image::imageops::FilterType::Lanczos3);
                 let rgba = img.to_rgba8();
                 let (w, h) = rgba.dimensions();
                 
@@ -90,11 +90,22 @@ impl Face for ImageFace {
         let path_opt = complications
             .get_option(self.name(), "settings", "path");
             
-        let path = if let Some(p) = path_opt {
+        let mut path = if let Some(p) = path_opt {
             p.clone()
         } else {
             String::new()
         };
+
+        // Fallback to default wallpaper if path is empty
+        if path.is_empty() {
+            // Check for default wallpaper in common locations
+            for default_path in &["octaknight-wallpaper.png", "images/octaknight-wallpaper.png", "/usr/share/ht32-panel/octaknight-wallpaper.png"] {
+                if std::path::Path::new(default_path).exists() {
+                    path = default_path.to_string();
+                    break;
+                }
+            }
+        }
 
         if path.is_empty() {
             let (w, _h) = canvas.dimensions();
