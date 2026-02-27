@@ -50,7 +50,7 @@ clap = { version = "4", features = ["derive"] }
 askama = "0.15"
 
 # Graphics
-image = "0.25"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "ico", "tiff", "webp", "pnm", "tga", "dds", "farbfeld"] }
 tiny-skia = "0.11"
 fontdue = "0.9"
 png = "0.17"
