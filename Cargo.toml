@@ -51,6 +51,7 @@ askama = "=0.12.0"
 
 # Graphics
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "tiff", "webp", "pnm", "tga"] }
+image-webp = "=0.1.3"
 tiny-skia = "0.11"
 fontdue = "0.9"
 png = "0.17"
