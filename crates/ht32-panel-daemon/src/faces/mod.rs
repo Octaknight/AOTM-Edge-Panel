@@ -699,7 +699,6 @@ pub fn available_faces() -> Vec<FaceInfo> {
             display_name: "Image",
         },
         FaceInfo {
-            id: "{
             id: "professional",
             display_name: "Professional",
         },
