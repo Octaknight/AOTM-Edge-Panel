@@ -4,7 +4,7 @@ use super::{Complication, ComplicationOption, EnabledComplications, Face, Theme}
 use crate::rendering::Canvas;
 use crate::sensors::data::SystemData;
 use std::sync::Mutex;
-use tiny_skia::{Pixmap, PixmapPaint, Transform};
+use tiny_skia::{Pixmap};
 use tracing::{error, info};
 
 /// Face that displays a static image.
