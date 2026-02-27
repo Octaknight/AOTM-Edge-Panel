@@ -14,16 +14,56 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+      # Setup Rust explicitly for standard Cargo build
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-gnu
 
-      - name: Build release artifacts
-        run: nix build .#release
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev libusb-1.0-0-dev libdbus-1-dev
 
+      - name: Build release binaries
+        run: |
+          # Build only daemon and cli for broad compatibility
+          cargo build --release --bin ht32paneld --bin ht32panelctl
+
+      - name: Prepare release archive
+        run: |
+          mkdir -p dist/config
+          
+          # Binaries
+          cp target/release/ht32paneld dist/
+          cp target/release/ht32panelctl dist/          
+          
+          # Config
+          mkdir -p dist/config
+          # If config structure from repo is simple files or dirs, ensure target structure is correct
+          # config/default.toml -> dist/config/default.toml
+          cp -r config/* dist/config/
+          
+          # Installation files
+          cp packaging/install.sh dist/
+          if [ -f 99-ht32-panel.rules ]; then
+             cp 99-ht32-panel.rules dist/
+          fi
+          cp packaging/ht32-panel.service dist/
+          if [ -f octaknight-wallpaper.png ]; then
+            cp octaknight-wallpaper.png dist/
+          fi
+          
+          # Create archive
+          # Use proper naming for release asset
+          TAR_NAME="ht32-panel-${{ github.ref_name }}-x86_64-linux.tar.gz"
+          tar -czvf $TAR_NAME -C dist .
+          
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            result/*
+            ht32-panel-*-x86_64-linux.tar.gz
           body_path: .github/RELEASE_TEMPLATE.md
           generate_release_notes: true
