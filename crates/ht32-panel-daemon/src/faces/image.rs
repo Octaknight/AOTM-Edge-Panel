@@ -97,8 +97,16 @@ impl Face for ImageFace {
         };
 
         if path.is_empty() {
-            canvas.draw_text(10, 10, "No image configured.", 16.0, theme.text);
-            canvas.draw_text(10, 30, "Set path in settings.", 14.0, theme.text);
+            let (w, _h) = canvas.dimensions();
+            let size = if w < 200 { 12.0 } else { 16.0 };
+            
+            if w < 120 {
+                // Very small width, just show icon or abbreviated text
+                canvas.draw_text(5, 10, "No Image", size, theme.text);
+            } else {
+                canvas.draw_text(10, 10, "No image configured.", size, theme.text);
+                canvas.draw_text(10, 10 + size as i32 + 4, "Set path in settings.", size - 2.0, theme.text);
+            }
             return;
         }
 
