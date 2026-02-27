@@ -65,6 +65,11 @@
             postInstall = ''
               mkdir -p $out/share/ht32-panel
               cp -r config $out/share/ht32-panel/
+              cp -r packaging $out/share/ht32-panel/
+              cp 99-ht32-panel.rules $out/share/ht32-panel/
+              if [ -f octaknight-wallpaper.png ]; then
+                cp octaknight-wallpaper.png $out/share/ht32-panel/
+              fi
             '';
           });
 
@@ -95,10 +100,23 @@
             nativeBuildInputs = [ pkgs.gzip ];
           } ''
             mkdir -p dist/config
+            
+            # Binaries
             cp ${pkg}/bin/ht32paneld dist/
             cp ${pkg}/bin/ht32panelctl dist/
             cp ${applet}/bin/ht32-panel-applet dist/
+            
+            # Config
             cp -r ${pkg}/share/ht32-panel/config/* dist/config/
+            
+            # Installation files
+            cp ${pkg}/share/ht32-panel/packaging/install.sh dist/
+            cp ${pkg}/share/ht32-panel/99-ht32-panel.rules dist/
+            cp ${pkg}/share/ht32-panel/packaging/ht32-panel.service dist/
+            if [ -f ${pkg}/share/ht32-panel/octaknight-wallpaper.png ]; then
+              cp ${pkg}/share/ht32-panel/octaknight-wallpaper.png dist/
+            fi
+            
             tar -czvf $out -C dist .
           '';
 

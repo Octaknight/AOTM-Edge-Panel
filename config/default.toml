@@ -21,6 +21,8 @@ lcd = "auto"
 led = "/dev/ttyUSB0"
 # Note: LED theme, intensity, and speed are stored in the state directory.
 # Use `ht32panelctl led set <theme>` to change them.
+# Themes: rainbow (default), breathing, colors, spectrum, wave, meteor.
+# For industrial settings, we recommend 'breathing' or 'colors' with low speed.
 
 # Canvas Configuration
 [canvas]
