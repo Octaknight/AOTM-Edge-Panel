@@ -27,6 +27,8 @@
                            value="{{ opt.current_value }}">
                     <span class="range-value">{{ opt.current_value }}</span>
                     {% endif %}
+                    {% else if opt.is_text %}
+                    <input type="text" name="value" class="option-text" value="{{ opt.current_value }}">
                     {% else %}
                     <select name="value" class="option-select">
                         {% for choice in opt.choices %}

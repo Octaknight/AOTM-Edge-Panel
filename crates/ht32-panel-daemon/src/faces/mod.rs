@@ -10,12 +10,14 @@ mod arcs;
 mod ascii;
 mod clock;
 mod digits;
+mod image;
 mod professional;
 
 pub use arcs::ArcsFace;
 pub use ascii::AsciiFace;
 pub use clock::ClockFace;
 pub use digits::DigitsFace;
+pub use image::ImageFace;
 pub use professional::ProfessionalFace;
 
 use crate::rendering::Canvas;
@@ -205,6 +207,8 @@ pub enum ComplicationOptionType {
         /// Step increment.
         step: f32,
     },
+    /// Free text input.
+    Text,
 }
 
 /// A choice value for a complication option.
@@ -274,6 +278,22 @@ impl ComplicationOption {
             name: name.to_string(),
             description: description.to_string(),
             option_type: ComplicationOptionType::Range { min, max, step },
+            default_value: default.to_string(),
+        }
+    }
+
+    /// Creates a new text input option.
+    pub fn text(
+        id: &str,
+        name: &str,
+        description: &str,
+        default: &str,
+    ) -> Self {
+        Self {
+            id: id.to_string(),
+            name: name.to_string(),
+            description: description.to_string(),
+            option_type: ComplicationOptionType::Text,
             default_value: default.to_string(),
         }
     }
@@ -638,6 +658,7 @@ pub fn create_face(name: &str) -> Option<Box<dyn Face>> {
     match name.to_lowercase().as_str() {
         "arcs" => Some(Box::new(ArcsFace::new())),
         "ascii" => Some(Box::new(AsciiFace::new())),
+        "image" => Some(Box::new(ImageFace::new())),
         "clock" => Some(Box::new(ClockFace::new())),
         "digits" => Some(Box::new(DigitsFace::new())),
         "professional" => Some(Box::new(ProfessionalFace::new())),
@@ -673,7 +694,11 @@ pub fn available_faces() -> Vec<FaceInfo> {
             id: "digits",
             display_name: "Digits",
         },
+        FaceInfo image",
+            display_name: "Image",
+        },
         FaceInfo {
+            id: "{
             id: "professional",
             display_name: "Professional",
         },

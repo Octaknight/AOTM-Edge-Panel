@@ -156,6 +156,18 @@ impl Canvas {
         }
     }
 
+    /// Draws a pixmap (image).
+    pub fn draw_pixmap(&mut self, x: i32, y: i32, pixmap: &Pixmap) {
+        self.pixmap.draw_pixmap(
+            x,
+            y,
+            pixmap.as_ref(),
+            &tiny_skia::PixmapPaint::default(),
+            Transform::identity(),
+            None,
+        );
+    }
+
     /// Draws a line between two points.
     ///
     /// # Arguments
