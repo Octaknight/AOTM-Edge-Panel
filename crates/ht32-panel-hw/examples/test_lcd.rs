@@ -19,9 +19,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("  Serial: {:?}", device.serial_number());
             println!("  Manufacturer: {:?}", device.manufacturer_string());
             println!("  Product: {:?}", device.product_string());
-            println!("  Interface: {}", device.interface_number);
-            println!("  Usage Page: {:04x}", device.usage_page);
-            println!("  Usage: {:04x}", device.usage);
+            println!("  Interface: {}", device.interface_number());
+            println!("  Usage Page: {:04x}", device.usage_page());
+            println!("  Usage: {:04x}", device.usage());
             found = true;
         }
     }
