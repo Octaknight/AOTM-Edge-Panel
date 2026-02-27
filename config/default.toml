@@ -2,10 +2,10 @@
 
 # Web Server Configuration
 [web]
-# Enable the web server (disabled by default)
+# Enable the web server (enabled by default)
 enable = true
 # Server listen address
-listen = "[::1]:8686"
+listen = "0.0.0.0:8686"
 
 # Display refresh interval (milliseconds, 500-10000)
 refresh_interval = 2500
