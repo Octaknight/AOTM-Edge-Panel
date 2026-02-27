@@ -13,9 +13,22 @@ install -m 755 ht32paneld /usr/local/bin/
 
 # Install config
 mkdir -p /etc/ht32-panel
+CONFIG_SRC="config.toml"
+
+# Check if we are running from extracted tarball structure
+if [ -f config/default.toml ]; then
+    CONFIG_SRC="config/default.toml"
+elif [ -f default.toml ]; then
+    CONFIG_SRC="default.toml"
+fi
+
 if [ ! -f /etc/ht32-panel/config.toml ]; then
-    install -m 644 config.toml /etc/ht32-panel/
-    echo "Installed default config to /etc/ht32-panel/config.toml"
+    if [ -f "$CONFIG_SRC" ]; then
+        install -m 644 "$CONFIG_SRC" /etc/ht32-panel/config.toml
+        echo "Installed default config to /etc/ht32-panel/config.toml"
+    else
+        echo "Warning: config file not found ($CONFIG_SRC), skipping config installation"
+    fi
 else
     echo "Config already exists at /etc/ht32-panel/config.toml, skipping overwrite"
 fi
