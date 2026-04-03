@@ -2,7 +2,7 @@
 
 use askama::Template;
 use axum::{
-    extract::{Form, Multipart, State},
+    extract::{multipart::MultipartRejection, Form, Multipart, State},
     http::{header, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -437,7 +437,7 @@ async fn complication_option_set(
 /// POST /image-upload - Upload an image for the image face
 async fn image_upload_set(
     State(state): State<WebState>,
-    multipart: Result<Multipart, axum::extract::rejection::MultipartRejection>,
+    multipart: Result<Multipart, MultipartRejection>,
 ) -> impl IntoResponse {
     const MAX_UPLOAD_BYTES: usize = 10 * 1024 * 1024;
 
