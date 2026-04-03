@@ -2,7 +2,7 @@
 
 use askama::Template;
 use axum::{
-    extract::{multipart::MultipartRejection, Form, Multipart, State},
+    extract::{Form, Multipart, State},
     http::{header, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -437,7 +437,7 @@ async fn complication_option_set(
 /// POST /image-upload - Upload an image for the image face
 async fn image_upload_set(
     State(state): State<WebState>,
-    multipart: Result<Multipart, MultipartRejection>,
+    mut multipart: Multipart,
 ) -> impl IntoResponse {
     const MAX_UPLOAD_BYTES: usize = 10 * 1024 * 1024;
 
@@ -448,17 +448,6 @@ async fn image_upload_set(
             Some("Switch to the Image face before uploading an image.".to_string()),
         );
     }
-
-    let mut multipart = match multipart {
-        Ok(multipart) => multipart,
-        Err(err) => {
-            return render_complications_with_feedback(
-                &state.app,
-                None,
-                Some(format!("Failed to read upload: {}", err)),
-            )
-        }
-    };
 
     loop {
         let field = match multipart.next_field().await {

@@ -34,9 +34,9 @@ impl ImageFace {
                 let img = img.resize_to_fill(width, height, image::imageops::FilterType::Lanczos3);
                 let rgba = img.to_rgba8();
                 let (w, h) = rgba.dimensions();
-                
+
                 let mut data = rgba.into_raw();
-                
+
                 // Premultiply alpha for tiny-skia
                 for chunk in data.chunks_mut(4) {
                     let a = chunk[3] as u32;
@@ -47,11 +47,8 @@ impl ImageFace {
                     }
                 }
 
-                if let Some(size) = tiny_skia::IntSize::from_wh(w, h) {
-                    return Some((Pixmap::from_vec(data, size).unwrap(), modified));
-                } else {
-                    return None;
-                }
+                tiny_skia::IntSize::from_wh(w, h)
+                    .map(|size| (Pixmap::from_vec(data, size).unwrap(), modified))
             }
             Err(e) => {
                 error!("Failed to load image: {}", e);
@@ -91,9 +88,8 @@ impl Face for ImageFace {
         canvas.clear();
 
         // Get configured path
-        let path_opt = complications
-            .get_option(self.name(), "settings", "path");
-            
+        let path_opt = complications.get_option(self.name(), "settings", "path");
+
         let mut path = if let Some(p) = path_opt {
             p.clone()
         } else {
@@ -121,13 +117,19 @@ impl Face for ImageFace {
         if path.is_empty() {
             let (w, _h) = canvas.dimensions();
             let size = if w < 200 { 12.0 } else { 16.0 };
-            
+
             if w < 120 {
                 // Very small width, just show icon or abbreviated text
                 canvas.draw_text(5, 10, "No Image", size, theme.text);
             } else {
                 canvas.draw_text(10, 10, "No image configured.", size, theme.text);
-                canvas.draw_text(10, 10 + size as i32 + 4, "Set path in settings.", size - 2.0, theme.text);
+                canvas.draw_text(
+                    10,
+                    10 + size as i32 + 4,
+                    "Set path in settings.",
+                    size - 2.0,
+                    theme.text,
+                );
             }
             return;
         }
@@ -141,7 +143,8 @@ impl Face for ImageFace {
         // Reload if path changed or no cache
         let should_reload = match &*cache {
             Some((cached_path, cached_modified, _)) => {
-                cached_path != &path || current_modified.map_or(true, |modified| modified > *cached_modified)
+                cached_path != &path
+                    || current_modified.is_none_or(|modified| modified > *cached_modified)
             }
             None => true,
         };

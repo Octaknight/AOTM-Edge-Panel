@@ -283,12 +283,7 @@ impl ComplicationOption {
     }
 
     /// Creates a new text input option.
-    pub fn text(
-        id: &str,
-        name: &str,
-        description: &str,
-        default: &str,
-    ) -> Self {
+    pub fn text(id: &str, name: &str, description: &str, default: &str) -> Self {
         Self {
             id: id.to_string(),
             name: name.to_string(),
