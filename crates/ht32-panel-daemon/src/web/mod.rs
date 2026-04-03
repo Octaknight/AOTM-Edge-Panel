@@ -2,7 +2,7 @@
 
 use askama::Template;
 use axum::{
-    extract::{Form, State},
+    extract::{Form, Multipart, State},
     http::{header, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -131,6 +131,10 @@ struct ComplicationItem {
 struct ComplicationsTemplate {
     face_name: String,
     complications: Vec<ComplicationItem>,
+    show_image_upload: bool,
+    image_path: String,
+    upload_message: Option<String>,
+    upload_error: Option<String>,
 }
 
 /// Shared state for the web server including signal channel.
@@ -165,6 +169,7 @@ pub fn create_router(state: Arc<AppState>, signal_tx: broadcast::Sender<DaemonSi
             get(complications_get).post(complications_set),
         )
         .route("/complication-option", post(complication_option_set))
+        .route("/image-upload", post(image_upload_set))
         .route("/preview", get(preview_get))
         // State
         .with_state(web_state)
@@ -429,12 +434,135 @@ async fn complication_option_set(
     render_complications(&state.app)
 }
 
+/// POST /image-upload - Upload an image for the image face
+async fn image_upload_set(
+    State(state): State<WebState>,
+    multipart: Result<Multipart, axum::extract::rejection::MultipartRejection>,
+) -> impl IntoResponse {
+    const MAX_UPLOAD_BYTES: usize = 10 * 1024 * 1024;
+
+    if state.app.face_name() != "image" {
+        return render_complications_with_feedback(
+            &state.app,
+            None,
+            Some("Switch to the Image face before uploading an image.".to_string()),
+        );
+    }
+
+    let mut multipart = match multipart {
+        Ok(multipart) => multipart,
+        Err(err) => {
+            return render_complications_with_feedback(
+                &state.app,
+                None,
+                Some(format!("Failed to read upload: {}", err)),
+            )
+        }
+    };
+
+    loop {
+        let field = match multipart.next_field().await {
+            Ok(Some(field)) => field,
+            Ok(None) => {
+                return render_complications_with_feedback(
+                    &state.app,
+                    None,
+                    Some("Choose an image file to upload.".to_string()),
+                )
+            }
+            Err(err) => {
+                return render_complications_with_feedback(
+                    &state.app,
+                    None,
+                    Some(format!("Failed to process upload: {}", err)),
+                )
+            }
+        };
+
+        if field.name() != Some("image") {
+            continue;
+        }
+
+        let bytes = match field.bytes().await {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                return render_complications_with_feedback(
+                    &state.app,
+                    None,
+                    Some(format!("Failed to read uploaded file: {}", err)),
+                )
+            }
+        };
+
+        if bytes.is_empty() {
+            return render_complications_with_feedback(
+                &state.app,
+                None,
+                Some("Choose a non-empty image file to upload.".to_string()),
+            );
+        }
+
+        if bytes.len() > MAX_UPLOAD_BYTES {
+            return render_complications_with_feedback(
+                &state.app,
+                None,
+                Some("Image is too large. Please upload a file smaller than 10 MB.".to_string()),
+            );
+        }
+
+        let saved_path = match state.app.save_uploaded_image(bytes.as_ref()) {
+            Ok(path) => path,
+            Err(err) => {
+                return render_complications_with_feedback(
+                    &state.app,
+                    None,
+                    Some(format!("Upload failed: {}", err)),
+                )
+            }
+        };
+
+        if let Err(err) = state
+            .app
+            .set_complication_option("settings", "path", &saved_path)
+        {
+            return render_complications_with_feedback(
+                &state.app,
+                None,
+                Some(format!("Upload saved, but activating it failed: {}", err)),
+            );
+        }
+
+        return render_complications_with_feedback(
+            &state.app,
+            Some("Image uploaded and selected for display.".to_string()),
+            None,
+        );
+    }
+}
+
 /// Helper to render the complications template
 fn render_complications(state: &Arc<AppState>) -> Html<String> {
+    render_complications_with_feedback(state, None, None)
+}
+
+/// Helper to render the complications template with upload feedback.
+fn render_complications_with_feedback(
+    state: &Arc<AppState>,
+    upload_message: Option<String>,
+    upload_error: Option<String>,
+) -> Html<String> {
     let face_name = state.face_name();
     let available = state.available_complications();
     let enabled_set = state.enabled_complications();
     let interfaces = state.list_network_interfaces();
+    let show_image_upload = face_name == "image";
+    let image_path = if show_image_upload {
+        state
+            .get_complication_option("settings", "path")
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
 
     let complications: Vec<ComplicationItem> = available
         .into_iter()
@@ -543,6 +671,10 @@ fn render_complications(state: &Arc<AppState>) -> Html<String> {
         ComplicationsTemplate {
             face_name,
             complications,
+            show_image_upload,
+            image_path,
+            upload_message,
+            upload_error,
         }
         .render()
         .unwrap(),

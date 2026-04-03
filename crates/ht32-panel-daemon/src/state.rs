@@ -920,6 +920,34 @@ impl AppState {
             .cloned()
     }
 
+    /// Saves an uploaded image into the state directory and returns its absolute path.
+    pub fn save_uploaded_image(&self, bytes: &[u8]) -> Result<String> {
+        if bytes.is_empty() {
+            return Err(anyhow::anyhow!("Uploaded file is empty"));
+        }
+
+        let image = image::load_from_memory(bytes).context("Uploaded file is not a valid image")?;
+        let uploads_dir = self.state_dir.join("uploads");
+        std::fs::create_dir_all(&uploads_dir).with_context(|| {
+            format!(
+                "Failed to create image upload directory at {}",
+                uploads_dir.display()
+            )
+        })?;
+
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let path = uploads_dir.join(format!("image-{}.png", timestamp));
+
+        image
+            .save_with_format(&path, image::ImageFormat::Png)
+            .with_context(|| format!("Failed to save uploaded image to {}", path.display()))?;
+
+        Ok(path.to_string_lossy().to_string())
+    }
+
     /// Sets a complication option value.
     pub fn set_complication_option(
         &self,

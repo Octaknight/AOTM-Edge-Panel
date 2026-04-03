@@ -4,13 +4,14 @@ use super::{Complication, ComplicationOption, EnabledComplications, Face, Theme}
 use crate::rendering::Canvas;
 use crate::sensors::data::SystemData;
 use std::sync::Mutex;
-use tiny_skia::{Pixmap};
+use std::time::SystemTime;
+use tiny_skia::Pixmap;
 use tracing::{error, info};
 
 /// Face that displays a static image.
 pub struct ImageFace {
-    /// Cached image data: (path, pixmap, timestamp of last load)
-    cache: Mutex<Option<(String, Pixmap)>>,
+    /// Cached image data: (path, last modified time, pixmap)
+    cache: Mutex<Option<(String, SystemTime, Pixmap)>>,
 }
 
 impl ImageFace {
@@ -22,8 +23,11 @@ impl ImageFace {
     }
 
     /// Loads an image from path and resizes it to fit the canvas.
-    fn load_image(&self, path: &str, width: u32, height: u32) -> Option<Pixmap> {
+    fn load_image(&self, path: &str, width: u32, height: u32) -> Option<(Pixmap, SystemTime)> {
         info!("Loading image from: {}", path);
+        let modified = std::fs::metadata(path)
+            .and_then(|metadata| metadata.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
         match image::open(path) {
             Ok(img) => {
                 // Resize to fill canvas (cropping if necessary)
@@ -44,7 +48,7 @@ impl ImageFace {
                 }
 
                 if let Some(size) = tiny_skia::IntSize::from_wh(w, h) {
-                    return Some(Pixmap::from_vec(data, size).unwrap());
+                    return Some((Pixmap::from_vec(data, size).unwrap(), modified));
                 } else {
                     return None;
                 }
@@ -99,7 +103,14 @@ impl Face for ImageFace {
         // Fallback to default wallpaper if path is empty
         if path.is_empty() {
             // Check for default wallpaper in common locations
-            for default_path in &["octaknight-wallpaper.png", "images/octaknight-wallpaper.png", "/usr/share/ht32-panel/octaknight-wallpaper.png"] {
+            for default_path in &[
+                "octaknight-wallpaper.png",
+                "octaknight-wallpaper.jpg",
+                "images/octaknight-wallpaper.png",
+                "images/octaknight-wallpaper.jpg",
+                "/usr/share/ht32-panel/octaknight-wallpaper.png",
+                "/usr/share/ht32-panel/octaknight-wallpaper.jpg",
+            ] {
                 if std::path::Path::new(default_path).exists() {
                     path = default_path.to_string();
                     break;
@@ -123,16 +134,21 @@ impl Face for ImageFace {
 
         let (cw, ch) = canvas.dimensions();
         let mut cache = self.cache.lock().unwrap();
+        let current_modified = std::fs::metadata(&path)
+            .and_then(|metadata| metadata.modified())
+            .ok();
 
         // Reload if path changed or no cache
         let should_reload = match &*cache {
-            Some((cached_path, _)) => cached_path != &path,
+            Some((cached_path, cached_modified, _)) => {
+                cached_path != &path || current_modified.map_or(true, |modified| modified > *cached_modified)
+            }
             None => true,
         };
 
         if should_reload {
-            if let Some(pixmap) = self.load_image(&path, cw, ch) {
-                *cache = Some((path.clone(), pixmap));
+            if let Some((pixmap, modified)) = self.load_image(&path, cw, ch) {
+                *cache = Some((path.clone(), modified, pixmap));
             } else {
                 // If failed to load, clear cache to avoid stuck state if file is fixed later?
                 // Or maybe keep old image if path changed but new one is invalid?
@@ -142,7 +158,7 @@ impl Face for ImageFace {
         }
 
         // Draw cached image
-        if let Some((_, pixmap)) = &*cache {
+        if let Some((_, _, pixmap)) = &*cache {
             // center the image
             let x = (cw as i32 - pixmap.width() as i32) / 2;
             let y = (ch as i32 - pixmap.height() as i32) / 2;

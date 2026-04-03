@@ -33,32 +33,33 @@ jobs:
 
       - name: Prepare release archive
         run: |
-          mkdir -p dist/config
+          PKG_NAME="ht32-panel-${{ github.ref_name }}-x86_64-linux"
+          PKG_ROOT="dist/$PKG_NAME"
+          mkdir -p "$PKG_ROOT/config"
           
           # Binaries
-          cp target/release/ht32paneld dist/
-          cp target/release/ht32panelctl dist/          
+          cp target/release/ht32paneld "$PKG_ROOT/"
+          cp target/release/ht32panelctl "$PKG_ROOT/"
           
           # Config
-          mkdir -p dist/config
-          # If config structure from repo is simple files or dirs, ensure target structure is correct
-          # config/default.toml -> dist/config/default.toml
-          cp -r config/* dist/config/
+          cp -r config/* "$PKG_ROOT/config/"
           
           # Installation files
-          cp packaging/install.sh dist/
+          cp packaging/install.sh "$PKG_ROOT/install.sh"
+          chmod +x "$PKG_ROOT/install.sh"
           if [ -f 99-ht32-panel.rules ]; then
-             cp 99-ht32-panel.rules dist/
+             cp 99-ht32-panel.rules "$PKG_ROOT/"
           fi
-          cp packaging/ht32-panel.service dist/
+          cp packaging/ht32-panel.service "$PKG_ROOT/"
           if [ -f octaknight-wallpaper.png ]; then
-            cp octaknight-wallpaper.png dist/
+            cp octaknight-wallpaper.png "$PKG_ROOT/"
+          elif [ -f octaknight-wallpaper.jpg ]; then
+            cp octaknight-wallpaper.jpg "$PKG_ROOT/"
           fi
           
           # Create archive
-          # Use proper naming for release asset
-          TAR_NAME="ht32-panel-${{ github.ref_name }}-x86_64-linux.tar.gz"
-          tar -czvf $TAR_NAME -C dist .
+          TAR_NAME="$PKG_NAME.tar.gz"
+          tar -czvf "$TAR_NAME" -C dist "$PKG_NAME"
           
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

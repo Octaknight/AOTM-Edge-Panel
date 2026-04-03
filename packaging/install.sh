@@ -10,6 +10,9 @@ echo "Installing HT32 Panel..."
 
 # Install binary
 install -m 755 ht32paneld /usr/local/bin/
+if [ -f ht32panelctl ]; then
+    install -m 755 ht32panelctl /usr/local/bin/
+fi
 
 # Install config
 mkdir -p /etc/ht32-panel
@@ -37,6 +40,9 @@ fi
 mkdir -p /usr/share/ht32-panel
 if [ -f octaknight-wallpaper.png ]; then
     install -m 644 octaknight-wallpaper.png /usr/share/ht32-panel/
+    echo "Installed wallpaper to /usr/share/ht32-panel/"
+elif [ -f octaknight-wallpaper.jpg ]; then
+    install -m 644 octaknight-wallpaper.jpg /usr/share/ht32-panel/
     echo "Installed wallpaper to /usr/share/ht32-panel/"
 fi
 

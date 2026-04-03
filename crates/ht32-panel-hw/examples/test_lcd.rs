@@ -1,16 +1,19 @@
-use ht32_panel_hw::{LCD_VID, LCD_PID, LcdDevice};
 use hidapi::HidApi;
+use ht32_panel_hw::{LcdDevice, LCD_PID, LCD_VID};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("HT32 Panel Hardware Test");
     println!("------------------------");
-    println!("Searching for device VID:{:04x} PID:{:04x}", LCD_VID, LCD_PID);
+    println!(
+        "Searching for device VID:{:04x} PID:{:04x}",
+        LCD_VID, LCD_PID
+    );
 
     let api = HidApi::new()?;
     let devices: Vec<_> = api.device_list().collect();
 
     println!("Found {} HID devices total:", devices.len());
-    
+
     let mut found = false;
     for device in devices {
         if device.vendor_id() == LCD_VID && device.product_id() == LCD_PID {

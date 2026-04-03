@@ -65,7 +65,8 @@ chmod +x ht32-panel-*-x86_64.AppImage
 
 ```bash
 tar -xzf ht32-panel-*-x86_64-linux.tar.gz
-./ht32paneld config/default.toml
+cd ht32-panel-*-x86_64-linux
+sudo ./install.sh
 ```
 
 ### NixOS (System Service)
@@ -159,6 +160,7 @@ The daemon includes a web UI for monitoring and controlling the panel.
 ![ht32-panel-web-ui](https://raw.githubusercontent.com/ananthb/ht32-panel/main/images/ht32-panel-web-ui.png)
 
 To enable the web UI, set `web.enable = true` in the config file.
+The default listen address in this repo's sample config is `0.0.0.0:8686`, so you can open `http://localhost:8686/` on the device itself or `http://<device-ip>:8686/` from another machine on the same network.
 
 ## D-Bus
 

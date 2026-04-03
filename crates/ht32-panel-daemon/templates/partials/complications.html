@@ -1,4 +1,23 @@
 <p class="hint">Customize which elements appear on the <strong>{{ face_name }}</strong> face.</p>
+{% if show_image_upload %}
+<div class="image-upload-panel">
+    <p class="hint">Upload an image and it will be saved on the device and selected automatically.</p>
+    {% if !image_path.is_empty() %}
+    <p class="image-path">Current image: <code>{{ image_path }}</code></p>
+    {% endif %}
+    {% if let Some(message) = upload_message %}
+    <p class="flash-message success">{{ message }}</p>
+    {% endif %}
+    {% if let Some(error) = upload_error %}
+    <p class="flash-message error">{{ error }}</p>
+    {% endif %}
+    <form class="upload-form" hx-post="/image-upload" hx-encoding="multipart/form-data"
+          hx-target="#complications-controls" hx-swap="innerHTML">
+        <input type="file" name="image" accept="image/*" required>
+        <button type="submit" class="btn">Upload Image</button>
+    </form>
+</div>
+{% endif %}
 <div class="complications-list">
     {% for comp in complications %}
     <div class="complication-entry">
@@ -50,6 +69,44 @@
     flex-direction: column;
     gap: 0.5rem;
     margin-top: 0.75rem;
+}
+.image-upload-panel {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    background: #0a2540;
+    border: 1px solid #1a508b;
+}
+.upload-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+.upload-form input[type="file"] {
+    flex: 1;
+    min-width: 220px;
+}
+.image-path {
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    color: #cdd7e1;
+    word-break: break-all;
+}
+.flash-message {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.flash-message.success {
+    background: #10361b;
+    color: #a7f3b0;
+}
+.flash-message.error {
+    background: #3a1111;
+    color: #ffb4b4;
 }
 .complication-entry {
     background: #0f3460;
